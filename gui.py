@@ -571,6 +571,7 @@ class OrganizerGUI:
                 fg_color=theme["panel"],
                 border_width=1 if has_module_theme else 0,
                 border_color=theme["border"] if has_module_theme else theme["panel"],
+                corner_radius=13 if has_module_theme else 10,
             )
         self.header_f.configure(fg_color="transparent")
         self.lbl_app_title.configure(text_color=theme["title"])
@@ -584,12 +585,17 @@ class OrganizerGUI:
         self.btn_refresh.configure(fg_color=theme["accent"], hover_color=theme["accent_hover"])
         self.btn_sort_win.configure(fg_color=theme["panel_alt"], hover_color=theme["accent"])
         self.btn_manage_binds.configure(fg_color=theme["panel_alt"], hover_color=theme["accent"])
+        for button in (
+            self.btn_settings, self.btn_tuto, self.btn_refresh, self.btn_sort_win,
+            self.btn_manage_binds, self.btn_close_all, self.btn_reset,
+        ):
+            button.configure(corner_radius=10 if has_module_theme else 6)
         for button in self.hotkey_btns.values():
-            button.configure(fg_color=theme["accent"], hover_color=theme["accent_hover"])
+            button.configure(fg_color=theme["accent"], hover_color=theme["accent_hover"], corner_radius=10 if has_module_theme else 6)
         clear_color = theme.get("clear", "#c0392b") if has_module_theme else "#c0392b"
         clear_hover = theme.get("clear_hover", "#e74c3c") if has_module_theme else "#e74c3c"
         for button in self.hotkey_clear_buttons:
-            button.configure(fg_color=clear_color, hover_color=clear_hover)
+            button.configure(fg_color=clear_color, hover_color=clear_hover, corner_radius=10 if has_module_theme else 6)
         self.combo_mode.configure(
             fg_color=theme["accent"], button_color=theme["panel_alt"],
             button_hover_color=theme["accent_hover"],
@@ -599,10 +605,11 @@ class OrganizerGUI:
         self.frame_fast_command.configure(
             fg_color=theme["panel"], border_width=1 if has_module_theme else 0,
             border_color=theme["border"] if has_module_theme else theme["panel"],
+            corner_radius=13 if has_module_theme else 8,
         )
         self.fast_invite_separator.configure(fg_color=theme["border"])
         for button in (self.btn_copy_fast_command, self.btn_copy_fast_invites):
-            button.configure(fg_color=theme["accent"], hover_color=theme["accent_hover"])
+            button.configure(fg_color=theme["accent"], hover_color=theme["accent_hover"], corner_radius=10 if has_module_theme else 6)
         for label in (
             self.lbl_fast_command, self.lbl_fast_invite,
             self.lbl_fast_command_value, self.lbl_fast_invite_value,
