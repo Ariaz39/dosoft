@@ -70,6 +70,8 @@ class OrganizerApp:
         self.hotkey_actions = {} 
         self.mouse_hotkeys = {}
         self.mouse_states = {}
+        self.pending_wakfu_focus = None
+        self.wakfu_focus_defer_scheduled = False
         
         self.radial_focus = RadialMenu(
             self.gui.root,
@@ -463,18 +465,55 @@ class OrganizerApp:
         cycle_list = self.logic.get_cycle_list()
         for index, account in enumerate(cycle_list):
             if account["hwnd"] == hwnd:
-                def focus_account(target=account, target_index=index):
-                    focused = self.logic.focus_window(target["hwnd"])
-                    # The manual next/previous shortcuts continue directly
-                    # after/before the account that has just been focused.
-                    self.current_idx = target_index
-                    write_wakfu_debug(
-                        f"FOCUS_APPLIED reason={reason} account={target['name']} hwnd={hex(target['hwnd'])} "
-                        f"index={target_index} result={focused}"
-                    )
-                self.gui.root.after(0, focus_account)
+                # Never transfer focus during a real mouse press.  WAKFU can
+                # otherwise lose the matching mouse-up event and retain a
+                # phantom click.  Only the newest requested turn is retained.
+                self.pending_wakfu_focus = (account, index, reason)
+                if not self.wakfu_focus_defer_scheduled:
+                    self.wakfu_focus_defer_scheduled = True
+                    self.gui.root.after(0, self._apply_pending_wakfu_focus)
                 return
         write_wakfu_debug(f"FOCUS_IGNORED reason={reason} cause=window_not_in_cycle hwnd={hex(hwnd)}")
+
+    @staticmethod
+    def _mouse_button_is_down():
+        return any(
+            win32api.GetAsyncKeyState(button) < 0
+            for button in (0x01, 0x02, 0x04, 0x05, 0x06)
+        )
+
+    def _apply_pending_wakfu_focus(self):
+        """Apply one queued auto-focus after every physical mouse button is up."""
+        watcher = getattr(self, "wakfu_turn_visual_watcher", None)
+        if (
+            self.config.data.get("game_version") != "Wakfu"
+            or not self.config.data.get("auto_focus_wakfu", False)
+            or not watcher
+            or not watcher.combat_active
+        ):
+            self.pending_wakfu_focus = None
+            self.wakfu_focus_defer_scheduled = False
+            return
+
+        if self._mouse_button_is_down():
+            self.gui.root.after(30, self._apply_pending_wakfu_focus)
+            return
+
+        pending = self.pending_wakfu_focus
+        self.pending_wakfu_focus = None
+        self.wakfu_focus_defer_scheduled = False
+        if not pending:
+            return
+
+        target, target_index, reason = pending
+        focused = self.logic.focus_window(target["hwnd"])
+        # The manual next/previous shortcuts continue directly after/before
+        # the account that received the automatic focus.
+        self.current_idx = target_index
+        write_wakfu_debug(
+            f"FOCUS_APPLIED reason={reason} account={target['name']} hwnd={hex(target['hwnd'])} "
+            f"index={target_index} result={focused}"
+        )
 
     def toggle_wakfu_autofocus_combat(self):
         """Enter or leave the explicit WAKFU combat auto-focus session."""
@@ -490,6 +529,8 @@ class OrganizerApp:
 
     def on_wakfu_combat_state_changed(self, active, reason):
         write_wakfu_debug(f"COMBAT_SESSION active={active} reason={reason}")
+        if not active:
+            self.pending_wakfu_focus = None
         overlay = getattr(self, "wakfu_autofocus_overlay", None)
         if overlay:
             self.gui.root.after(0, overlay.set_armed, active)
