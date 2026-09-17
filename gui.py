@@ -332,6 +332,33 @@ class OrganizerGUI:
             wraplength=620,
         )
         self.lbl_fast_command_hint.pack(fill="x", padx=10, pady=(2, 7))
+
+        self.fast_invite_separator = ctk.CTkFrame(self.frame_fast_command, height=1, fg_color="#47606f")
+        self.fast_invite_separator.pack(fill="x", padx=10, pady=(0, 2))
+        self.frame_fast_invite_row = ctk.CTkFrame(self.frame_fast_command, fg_color="transparent")
+        self.frame_fast_invite_row.pack(fill="x", padx=2, pady=(0, 0))
+        self.lbl_fast_invite = ctk.CTkLabel(
+            self.frame_fast_invite_row, text="👥 Invite groupe", font=ctk.CTkFont(weight="bold")
+        )
+        self.lbl_fast_invite.pack(side="left", padx=(10, 6), pady=7)
+        self.lbl_fast_invite_value = ctk.CTkLabel(
+            self.frame_fast_invite_row, text="Définis un meneur pour générer les invitations.",
+            text_color="#d8e2e8", justify="left", anchor="w", wraplength=350,
+        )
+        self.lbl_fast_invite_value.pack(side="left", padx=4, pady=7, fill="x", expand=True)
+        self.btn_copy_fast_invites = ctk.CTkButton(
+            self.frame_fast_invite_row, text="Copier", width=65, height=26,
+            fg_color="#2f6b57", hover_color="#3c8069", state="disabled",
+            command=self.copy_fast_invites,
+        )
+        self.btn_copy_fast_invites.pack(side="right", padx=8, pady=7)
+        self.lbl_fast_invite_hint = ctk.CTkLabel(
+            self.frame_fast_command,
+            text="ⓘ À copier dans un raccourci chat, dans les paramètres de WAKFU.",
+            text_color="#aebbc4", font=ctk.CTkFont(size=11), justify="left", anchor="w",
+            wraplength=620,
+        )
+        self.lbl_fast_invite_hint.pack(fill="x", padx=10, pady=(2, 7))
         
         # --- CORRECTION PIED DE PAGE ---
         self.frame_footer = ctk.CTkFrame(self.root, fg_color="transparent")
@@ -479,7 +506,7 @@ class OrganizerGUI:
         btn.configure(text="T1" if new_team == "Team 1" else "T2", fg_color=team_color)
 
     def refresh_list(self, accounts):
-        self.update_fast_command()
+        self.update_fast_command(accounts)
         for widget in self.scroll_frame.winfo_children(): widget.destroy()
         leader_name = self.app.config.data.get("leader_name", "")
         
@@ -761,8 +788,8 @@ class OrganizerGUI:
         self.app.logic.set_leader(name)
         self.original_app_refresh()
 
-    def update_fast_command(self):
-        """Show the one-click WAKFU follow command only in the WAKFU module."""
+    def update_fast_command(self, accounts=None):
+        """Show one-click WAKFU follow and group-invite commands."""
         is_wakfu = self.app.config.data.get("game_version") == "Wakfu"
         if not is_wakfu:
             self.frame_fast_command.pack_forget()
@@ -778,12 +805,34 @@ class OrganizerGUI:
             self.fast_command = f"/follow {leader_name}"
             self.lbl_fast_command_value.configure(text=self.fast_command, font=ctk.CTkFont(weight="bold"))
             self.btn_copy_fast_command.configure(state="normal")
+            characters = accounts if accounts is not None else self.app.logic.all_accounts
+            invitees = [
+                account["name"] for account in characters
+                if account["name"] != leader_name and not account.get("is_menu", False)
+            ]
+            self.fast_invite_commands = "\n".join(f"/invite {pseudo}" for pseudo in invitees)
+            if self.fast_invite_commands:
+                self.lbl_fast_invite_value.configure(
+                    text="  |  ".join(self.fast_invite_commands.splitlines()),
+                    font=ctk.CTkFont(weight="bold"),
+                )
+                self.btn_copy_fast_invites.configure(state="normal")
+            else:
+                self.lbl_fast_invite_value.configure(
+                    text="Aucun autre personnage détecté.", font=ctk.CTkFont()
+                )
+                self.btn_copy_fast_invites.configure(state="disabled")
         else:
             self.fast_command = ""
+            self.fast_invite_commands = ""
             self.lbl_fast_command_value.configure(
                 text="Définis un meneur pour générer la commande.", font=ctk.CTkFont()
             )
             self.btn_copy_fast_command.configure(state="disabled")
+            self.lbl_fast_invite_value.configure(
+                text="Définis un meneur pour générer les invitations.", font=ctk.CTkFont()
+            )
+            self.btn_copy_fast_invites.configure(state="disabled")
 
     def copy_fast_command(self):
         if not getattr(self, "fast_command", ""):
@@ -792,6 +841,14 @@ class OrganizerGUI:
         self.root.clipboard_append(self.fast_command)
         self.root.update()
         self.show_temporary_message("✅ Commande /follow copiée.", "#2ecc71")
+
+    def copy_fast_invites(self):
+        if not getattr(self, "fast_invite_commands", ""):
+            return
+        self.root.clipboard_clear()
+        self.root.clipboard_append(self.fast_invite_commands)
+        self.root.update()
+        self.show_temporary_message("✅ Commandes /invite copiées.", "#2ecc71")
 
     def reset_all(self):
         reponse = messagebox.askyesno(self.app.i18n.t("dialog_confirm_title", "Confirmation"),self.app.i18n.t("dialog_reset_text", "Êtes-vous sûr de vouloir tout réinitialiser ?\n\nToutes vos touches seront perdues."))  
