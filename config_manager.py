@@ -26,6 +26,8 @@ class Config:
             "ignore_organizer_warning": False,
             "auto_focus_retro": False,
             "auto_focus_wakfu": False,
+            "wakfu_autofocus_hotkey": "",
+            "wakfu_autofocus_overlay_position": [0.59, 0.56],
             "wakfu_fighter_ids": {},
             # --- NOUVEAU : Gestionnaire de Binds Avancé DOSOFT ---
             "advanced_bind_mode": "cycle", 

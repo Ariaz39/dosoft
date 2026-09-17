@@ -40,6 +40,7 @@ from keyboard_layout_manager import KeyboardLayoutManager
 from wakfu_log_watcher import WakfuLogWatcher
 from wakfu_turn_visual_watcher import WakfuTurnVisualWatcher
 from wakfu_debug import write_wakfu_debug
+from wakfu_autofocus_overlay import WakfuAutofocusOverlay
 from resource_paths import skin_path
 
 
@@ -403,6 +404,8 @@ class OrganizerApp:
             if cfg.get("toggle_app_key"): self.register_action(cfg["toggle_app_key"], lambda: self.gui.root.after(0, self.gui.toggle_visibility))
             if cfg.get('refresh_key'): self.register_action(cfg['refresh_key'], self.refresh)
             if cfg.get('quit_key'):    self.register_action(cfg['quit_key'],   self.quit_app) 
+            if cfg.get('wakfu_autofocus_hotkey'):
+                self.register_action(cfg['wakfu_autofocus_hotkey'], self.toggle_wakfu_autofocus_combat)
             keyboard.hook(self.global_hook_listener)
         except Exception: pass
 
@@ -425,8 +428,15 @@ class OrganizerApp:
         self.wakfu_turn_visual_watcher = WakfuTurnVisualWatcher(
             self._get_wakfu_cycle_windows,
             self.on_wakfu_turn_window_detected,
+            self.on_wakfu_combat_state_changed,
         )
         self.wakfu_turn_visual_watcher.start()
+        self.wakfu_autofocus_overlay = WakfuAutofocusOverlay(
+            self.gui.root,
+            self.config,
+            self._get_wakfu_cycle_windows,
+            self.toggle_wakfu_autofocus_combat,
+        )
 
     def _get_wakfu_cycle_windows(self):
         if self.config.data.get("game_version") != "Wakfu":
@@ -465,6 +475,33 @@ class OrganizerApp:
                 self.gui.root.after(0, focus_account)
                 return
         write_wakfu_debug(f"FOCUS_IGNORED reason={reason} cause=window_not_in_cycle hwnd={hex(hwnd)}")
+
+    def toggle_wakfu_autofocus_combat(self):
+        """Enter or leave the explicit WAKFU combat auto-focus session."""
+        if self.config.data.get("game_version") != "Wakfu":
+            write_wakfu_debug("COMBAT_TOGGLE_IGNORED cause=game_version")
+            return
+        if not self.config.data.get("auto_focus_wakfu", False):
+            write_wakfu_debug("COMBAT_TOGGLE_IGNORED cause=autofocus_disabled")
+            return
+        watcher = getattr(self, "wakfu_turn_visual_watcher", None)
+        if watcher:
+            watcher.set_combat_active(not watcher.combat_active, "user_toggle")
+
+    def on_wakfu_combat_state_changed(self, active, reason):
+        write_wakfu_debug(f"COMBAT_SESSION active={active} reason={reason}")
+        overlay = getattr(self, "wakfu_autofocus_overlay", None)
+        if overlay:
+            self.gui.root.after(0, overlay.set_armed, active)
+
+    def sync_wakfu_autofocus_overlay(self):
+        """Hide the WAKFU combat control when its parent option is disabled."""
+        overlay = getattr(self, "wakfu_autofocus_overlay", None)
+        watcher = getattr(self, "wakfu_turn_visual_watcher", None)
+        if not self.config.data.get("auto_focus_wakfu", False) and watcher:
+            watcher.set_combat_active(False, "autofocus_disabled")
+        if overlay:
+            self.gui.root.after(0, overlay.sync)
     
     def focus_leader(self):
         if self.logic.leader_hwnd: 

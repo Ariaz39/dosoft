@@ -58,6 +58,32 @@ class SettingsWindow(ctk.CTkToplevel):
         btn_x = ctk.CTkButton(frame_hk, text="✖", width=25, fg_color="#c0392b", hover_color="#e74c3c", command=lambda: self.parent.clear_key("radial_menu_hotkey", btn_hk))
         btn_x.pack(side="left", padx=5)
 
+        self.frame_wakfu_autofocus = ctk.CTkFrame(self.scroll_container)
+        self.frame_wakfu_autofocus.pack(fill="x", padx=10, pady=5)
+        self.lbl_wakfu_autofocus = ctk.CTkLabel(
+            self.frame_wakfu_autofocus, text="Auto-Focus WAKFU"
+        )
+        self.lbl_wakfu_autofocus.pack(side="left", padx=8, pady=8)
+        current_wakfu_hotkey = self.app.config.data.get("wakfu_autofocus_hotkey", "")
+        self.btn_wakfu_autofocus_hotkey = ctk.CTkButton(
+            self.frame_wakfu_autofocus,
+            text=current_wakfu_hotkey or self.app.i18n.t("none", "Aucun"),
+            width=100,
+            command=lambda: self.parent.catch_key(
+                "wakfu_autofocus_hotkey", self.btn_wakfu_autofocus_hotkey
+            ),
+        )
+        self.btn_wakfu_autofocus_hotkey.pack(side="right", padx=(3, 8), pady=8)
+        self.parent.hotkey_btns["wakfu_autofocus_hotkey"] = self.btn_wakfu_autofocus_hotkey
+        self.btn_wakfu_autofocus_clear = ctk.CTkButton(
+            self.frame_wakfu_autofocus, text="✖", width=25,
+            fg_color="#c0392b", hover_color="#e74c3c",
+            command=lambda: self.parent.clear_key(
+                "wakfu_autofocus_hotkey", self.btn_wakfu_autofocus_hotkey
+            ),
+        )
+        self.btn_wakfu_autofocus_clear.pack(side="right", padx=3, pady=8)
+
         frame_language = ctk.CTkFrame(self.scroll_container)
         frame_language.pack(fill="x", padx=10, pady=5)
         self.lbl_language = ctk.CTkLabel(frame_language, text=self.app.i18n.t("settings_language", "Langue"))
@@ -131,6 +157,7 @@ class SettingsWindow(ctk.CTkToplevel):
         self.lbl_settings_radial.configure(text=self.app.i18n.t("settings_radial", "Roue de Focus (Radiale)"))
         self.sw_radial.configure(text=self.app.i18n.t("settings_radial_enable", "Activer la roue"))
         self.lbl_hk.configure(text=self.app.i18n.t("settings_hotkey", "Raccourci :"))
+        self.lbl_wakfu_autofocus.configure(text="Auto-Focus WAKFU")
         self.lbl_language.configure(text=self.app.i18n.t("settings_language", "Langue"))
         self.lbl_keyboard.configure(text=self.app.i18n.t("settings_keyboard_layout", "Disposition clavier"))
         self.btn_close.configure(text=self.app.i18n.t("settings_close", "Fermer"))
@@ -514,6 +541,7 @@ class OrganizerGUI:
     def toggle_autofocus(self):
         self.app.config.data[self._autofocus_config_key()] = self.var_autofocus.get()
         self.app.config.save()
+        self.app.sync_wakfu_autofocus_overlay()
         
     def on_volume_change(self, value): self.app.update_volume(int(value))
     
@@ -658,6 +686,7 @@ class OrganizerGUI:
         self.app.config.data["game_version"] = choice
         self.app.config.save()
         self.update_version_selector(choice)
+        self.app.sync_wakfu_autofocus_overlay()
         self.var_autofocus.set(self.app.config.data.get(self._autofocus_config_key(), False))
         if choice in ("Rétro", "Wakfu"):
             self.chk_autofocus.pack(side="left", padx=(15, 5))
