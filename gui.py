@@ -8,7 +8,7 @@ import win32api
 import win32con
 import os
 import webbrowser
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageDraw
 from i18n_manager import I18nManager
 from config_manager import Config
 from app_version import APP_TITLE
@@ -314,10 +314,7 @@ class OrganizerGUI:
             "resources", "skin", self.game_theme.get("background_image", "wakfu_panel_texture.png")
         )
         if os.path.exists(texture_path):
-            texture = Image.open(texture_path)
-            self.wakfu_background_texture = ctk.CTkImage(
-                light_image=texture, dark_image=texture, size=(700, 850)
-            )
+            self.wakfu_background_texture = self.create_rounded_theme_image(texture_path, (700, 850), 18)
         self.lbl_wakfu_background = ctk.CTkLabel(
             self.root, text="", image=self.wakfu_background_texture, fg_color="transparent"
         )
@@ -355,10 +352,7 @@ class OrganizerGUI:
         )
         self.wakfu_banner_texture = None
         if os.path.exists(texture_path):
-            texture = Image.open(texture_path)
-            self.wakfu_banner_texture = ctk.CTkImage(
-                light_image=texture, dark_image=texture, size=(670, 58)
-            )
+            self.wakfu_banner_texture = self.create_rounded_theme_image(texture_path, (670, 58), 13)
         self.lbl_module_texture = ctk.CTkLabel(
             self.frame_module_banner, text="", image=self.wakfu_banner_texture,
             fg_color="transparent",
@@ -540,15 +534,21 @@ class OrganizerGUI:
         path = resource_path("resources", "skin", image_name)
         if not os.path.exists(path):
             return
-        image = Image.open(path)
-        self.wakfu_background_texture = ctk.CTkImage(
-            light_image=image, dark_image=image, size=(700, 850)
-        )
-        self.wakfu_banner_texture = ctk.CTkImage(
-            light_image=image, dark_image=image, size=(670, 58)
-        )
+        self.wakfu_background_texture = self.create_rounded_theme_image(path, (700, 850), 18)
+        self.wakfu_banner_texture = self.create_rounded_theme_image(path, (670, 58), 13)
         self.lbl_wakfu_background.configure(image=self.wakfu_background_texture)
         self.lbl_module_texture.configure(image=self.wakfu_banner_texture)
+
+    @staticmethod
+    def create_rounded_theme_image(path, size, radius):
+        """Create an in-memory, alpha-masked background with genuinely rounded edges."""
+        image = Image.open(path).convert("RGBA").resize(size, Image.Resampling.LANCZOS)
+        mask = Image.new("L", size, 0)
+        ImageDraw.Draw(mask).rounded_rectangle(
+            (0, 0, size[0] - 1, size[1] - 1), radius=radius, fill=255
+        )
+        image.putalpha(mask)
+        return ctk.CTkImage(light_image=image, dark_image=image, size=size)
 
     def apply_game_theme(self):
         """Apply the visual module associated with the selected game engine."""
