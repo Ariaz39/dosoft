@@ -30,9 +30,9 @@ GAME_THEMES = {
         "title": "#f2ddaf", "muted": "#d0bea0",
     },
     "Wakfu": {
-        "background": "#102a36", "panel": "#163b4a", "panel_alt": "#214d5c",
-        "accent": "#276f80", "accent_hover": "#39899b", "border": "#dfbd67",
-        "title": "#f4dfa1", "muted": "#c7d9dc",
+        "background": "#101519", "panel": "#171d21", "panel_alt": "#263137",
+        "accent": "#176c7c", "accent_hover": "#23889a", "border": "#c2a468",
+        "title": "#f2e5c2", "muted": "#b9c6c2",
     },
 }
 
@@ -243,6 +243,45 @@ class OrganizerGUI:
         self.bind_i18n_tooltip(self.btn_off, "tooltip_off", "Fermer complètement DOSOFT")
         # --------------------------
 
+        # Bandeau du module WAKFU : la texture est une ressource originale de DOSOFT,
+        # uniquement utilisée pour installer une identité visuelle au module.
+        self.frame_module_banner = ctk.CTkFrame(
+            self.root, height=58, corner_radius=9, fg_color="#172126",
+        )
+        self.frame_module_banner.pack_propagate(False)
+        texture_path = resource_path("resources", "skin", "wakfu_panel_texture.png")
+        self.wakfu_banner_texture = None
+        if os.path.exists(texture_path):
+            texture = Image.open(texture_path)
+            self.wakfu_banner_texture = ctk.CTkImage(
+                light_image=texture, dark_image=texture, size=(670, 58)
+            )
+        self.lbl_module_texture = ctk.CTkLabel(
+            self.frame_module_banner, text="", image=self.wakfu_banner_texture,
+            fg_color="transparent",
+        )
+        self.lbl_module_texture.place(relx=0, rely=0, relwidth=1, relheight=1)
+        self.frame_module_banner_content = ctk.CTkFrame(
+            self.frame_module_banner, fg_color="transparent"
+        )
+        self.frame_module_banner_content.pack(fill="both", expand=True)
+        self.lbl_module_mark = ctk.CTkLabel(
+            self.frame_module_banner_content, text="◈", font=ctk.CTkFont(size=23, weight="bold")
+        )
+        self.lbl_module_mark.pack(side="left", padx=(15, 8))
+        self.lbl_module_title = ctk.CTkLabel(
+            self.frame_module_banner_content, text="WAKFU", font=ctk.CTkFont(size=18, weight="bold")
+        )
+        self.lbl_module_title.pack(side="left")
+        self.lbl_module_subtitle = ctk.CTkLabel(
+            self.frame_module_banner_content, text="GESTION DE GROUPE", font=ctk.CTkFont(size=11, weight="bold")
+        )
+        self.lbl_module_subtitle.pack(side="left", padx=12)
+        self.lbl_module_state = ctk.CTkLabel(
+            self.frame_module_banner_content, text="SÉLECTEUR", font=ctk.CTkFont(size=10, weight="bold")
+        )
+        self.lbl_module_state.pack(side="right", padx=15)
+
         self.frame_mode = ctk.CTkFrame(self.root)
         self.frame_mode.pack(fill="x", padx=15, pady=5)
         
@@ -392,6 +431,7 @@ class OrganizerGUI:
         """Apply the visual module associated with the selected game engine."""
         version = self.app.config.data.get("game_version", "Unity")
         theme = GAME_THEMES.get(version, GAME_THEMES["Unity"])
+        is_wakfu = version == "Wakfu"
         self.game_theme = theme
 
         self.root.configure(fg_color=theme["background"])
@@ -399,15 +439,33 @@ class OrganizerGUI:
             self.frame_mode, self.frame_keys, self.frame_actions,
             self.pill_frame, self.scroll_frame,
         ):
-            frame.configure(fg_color=theme["panel"])
+            frame.configure(
+                fg_color=theme["panel"],
+                border_width=1 if is_wakfu else 0,
+                border_color=theme["border"] if is_wakfu else theme["panel"],
+            )
+        self.header_f.configure(fg_color="transparent")
         self.lbl_app_title.configure(text_color=theme["title"])
         self.lbl_accounts.configure(text_color=theme["title"])
+        self.lbl_controls.configure(text_color=theme["muted"])
+        self.lbl_versions.configure(text_color=theme["muted"])
+        self.lbl_keyboard_shortcuts.configure(text_color=theme["title"])
+        self.lbl_volume.configure(text_color=theme["muted"])
         self.btn_settings.configure(fg_color=theme["panel_alt"], hover_color=theme["accent"])
         self.btn_tuto.configure(fg_color=theme["accent"], hover_color=theme["accent_hover"])
         self.btn_refresh.configure(fg_color=theme["accent"], hover_color=theme["accent_hover"])
         self.btn_sort_win.configure(fg_color=theme["panel_alt"], hover_color=theme["accent"])
         self.btn_manage_binds.configure(fg_color=theme["panel_alt"], hover_color=theme["accent"])
-        self.frame_fast_command.configure(fg_color=theme["panel"])
+        self.combo_mode.configure(
+            fg_color=theme["accent"], button_color=theme["panel_alt"],
+            button_hover_color=theme["accent_hover"],
+        )
+        self.chk_autofocus.configure(fg_color=theme["accent"], hover_color=theme["accent_hover"], text_color=theme["muted"])
+        self.slider_volume.configure(progress_color=theme["accent"], button_color=theme["border"], button_hover_color=theme["title"])
+        self.frame_fast_command.configure(
+            fg_color=theme["panel"], border_width=1 if is_wakfu else 0,
+            border_color=theme["border"] if is_wakfu else theme["panel"],
+        )
         self.fast_invite_separator.configure(fg_color=theme["border"])
         for button in (self.btn_copy_fast_command, self.btn_copy_fast_invites):
             button.configure(fg_color=theme["accent"], hover_color=theme["accent_hover"])
@@ -416,6 +474,18 @@ class OrganizerGUI:
             self.lbl_fast_command_value, self.lbl_fast_invite_value,
         ):
             label.configure(text_color=theme["title"])
+        if is_wakfu:
+            self.frame_module_banner.configure(
+                fg_color="#152228", border_width=1, border_color=theme["border"]
+            )
+            self.lbl_module_mark.configure(text_color=theme["border"])
+            self.lbl_module_title.configure(text_color=theme["title"])
+            self.lbl_module_subtitle.configure(text_color=theme["muted"])
+            self.lbl_module_state.configure(text_color=theme["border"])
+            if not self.frame_module_banner.winfo_manager():
+                self.frame_module_banner.pack(fill="x", padx=15, pady=(5, 6), before=self.frame_mode)
+        else:
+            self.frame_module_banner.pack_forget()
         self.update_version_selector(version)
 
     def apply_translations(self):
