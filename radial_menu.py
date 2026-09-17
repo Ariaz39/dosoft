@@ -68,11 +68,13 @@ class RadialMenu:
             if self.sound_click: self.sound_click.set_volume(0.8 * self.base_volume)
 
     def load_image(self, class_name):
-        # NOUVEAU : Cherche "Classe_retro.png" si le mode Rétro est activé
-        filename = f"{class_name}_retro" if getattr(self, 'is_retro', False) and class_name != "Inconnu" else class_name
+        # The radial wheel uses the compact class-head portraits supplied in
+        # resources/skin for every engine.  Legacy ``_retro`` names are kept
+        # only as input compatibility, then normalized to the same portrait.
+        filename = class_name.removesuffix("_retro")
         
         if filename in self.image_cache: return self.image_cache[filename]
-        path = skin_path(filename, wheel=not filename.lower().endswith("_retro"))
+        path = skin_path(filename)
         if not os.path.exists(path): return None
         try:
             img = Image.open(path).resize((36, 36), Image.Resampling.LANCZOS)
