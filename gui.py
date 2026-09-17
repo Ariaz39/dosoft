@@ -223,6 +223,21 @@ class OrganizerGUI:
         self.hotkey_labels = {}
         self.tooltip_i18n_map = {}
 
+        # Fond discret pour WAKFU : il reste visible dans les respirations entre
+        # les cartes et évite l'effet de panneaux posés sur un aplat vide.
+        self.wakfu_background_texture = None
+        texture_path = resource_path("resources", "skin", "wakfu_panel_texture.png")
+        if os.path.exists(texture_path):
+            texture = Image.open(texture_path)
+            self.wakfu_background_texture = ctk.CTkImage(
+                light_image=texture, dark_image=texture, size=(700, 850)
+            )
+        self.lbl_wakfu_background = ctk.CTkLabel(
+            self.root, text="", image=self.wakfu_background_texture, fg_color="transparent"
+        )
+        self.lbl_wakfu_background.place(relx=0, rely=0, relwidth=1, relheight=1)
+        self.lbl_wakfu_background.lower()
+
         self.header_f = ctk.CTkFrame(self.root, fg_color="transparent")
         self.header_f.pack(fill="x", padx=15, pady=(15, 5))
         
@@ -265,22 +280,14 @@ class OrganizerGUI:
             self.frame_module_banner, fg_color="transparent"
         )
         self.frame_module_banner_content.pack(fill="both", expand=True)
-        self.lbl_module_mark = ctk.CTkLabel(
-            self.frame_module_banner_content, text="◈", font=ctk.CTkFont(size=23, weight="bold")
-        )
-        self.lbl_module_mark.pack(side="left", padx=(15, 8))
         self.lbl_module_title = ctk.CTkLabel(
             self.frame_module_banner_content, text="WAKFU", font=ctk.CTkFont(size=18, weight="bold")
         )
-        self.lbl_module_title.pack(side="left")
+        self.lbl_module_title.place(relx=0.5, rely=0.34, anchor="center")
         self.lbl_module_subtitle = ctk.CTkLabel(
             self.frame_module_banner_content, text="GESTION DE GROUPE", font=ctk.CTkFont(size=11, weight="bold")
         )
-        self.lbl_module_subtitle.pack(side="left", padx=12)
-        self.lbl_module_state = ctk.CTkLabel(
-            self.frame_module_banner_content, text="SÉLECTEUR", font=ctk.CTkFont(size=10, weight="bold")
-        )
-        self.lbl_module_state.pack(side="right", padx=15)
+        self.lbl_module_subtitle.place(relx=0.5, rely=0.72, anchor="center")
 
         self.frame_mode = ctk.CTkFrame(self.root)
         self.frame_mode.pack(fill="x", padx=15, pady=5)
@@ -325,7 +332,7 @@ class OrganizerGUI:
         self.frame_keys = ctk.CTkFrame(self.root)
         self.frame_keys.pack(fill="x", padx=15, pady=10)
         self.lbl_keyboard_shortcuts = ctk.CTkLabel(self.frame_keys, text=self.app.i18n.t("label_keyboard_shortcuts", "Raccourcis Clavier"), font=ctk.CTkFont(weight="bold"))
-        self.lbl_keyboard_shortcuts.grid(row=0, column=0, columnspan=6, pady=5)
+        self.lbl_keyboard_shortcuts.grid(row=0, column=0, columnspan=9, pady=5)
 
         self.create_hotkey_row(self.frame_keys, "hotkey_prev", "prev_key", 1, 0, "tooltip_prev")
         self.create_hotkey_row(self.frame_keys, "hotkey_next", "next_key", 1, 3, "tooltip_next")
@@ -337,7 +344,7 @@ class OrganizerGUI:
         self.frame_actions = ctk.CTkFrame(self.root)
         self.frame_actions.pack(fill="x", padx=15, pady=5)
 
-        self.lbl_volume = ctk.CTkLabel(self.frame_actions, text=self.app.i18n.t("label_volume", "🔊 Volume :"))
+        self.lbl_volume = ctk.CTkLabel(self.frame_actions, text=self.app.i18n.t("label_volume", "Volume :"))
         self.lbl_volume.pack(side="left", padx=10)
         self.slider_volume = ctk.CTkSlider(self.frame_actions, from_=0, to=100, command=self.on_volume_change, width=150)
         self.slider_volume.set(cfg.get("volume_level", 50))
@@ -354,7 +361,7 @@ class OrganizerGUI:
         self.pill_frame.pack(fill="x", padx=15, pady=(10, 0), ipadx=5, ipady=2)
 
         self.lbl_accounts = ctk.CTkLabel(self.pill_frame, text=self.app.i18n.t("label_active_accounts", "Comptes actifs"), font=ctk.CTkFont(size=13, weight="normal"), text_color="#ecf0f1")
-        self.lbl_accounts.pack(side="left", padx=10, pady=4)
+        self.lbl_accounts.place(relx=0.5, rely=0.5, anchor="center")
 
         self.btn_manage_binds = ctk.CTkButton(self.pill_frame, text="⚙️", width=28, height=28,
                                         fg_color="#2c3e50", hover_color="#1a252f", corner_radius=6,
@@ -365,7 +372,8 @@ class OrganizerGUI:
         self.scroll_frame = ctk.CTkScrollableFrame(self.root)
         self.scroll_frame.pack(fill="both", expand=True, padx=15, pady=(5, 10))
 
-        self.frame_fast_command = ctk.CTkFrame(self.root, fg_color="#263641", corner_radius=8)
+        self.frame_fast_command = ctk.CTkFrame(self.root, fg_color="#263641", corner_radius=8, height=78)
+        self.frame_fast_command.pack_propagate(False)
         self.frame_fast_command_row = ctk.CTkFrame(self.frame_fast_command, fg_color="transparent")
         self.frame_fast_command_row.pack(fill="x", padx=2, pady=(2, 0))
         self.lbl_fast_command = ctk.CTkLabel(
@@ -478,14 +486,15 @@ class OrganizerGUI:
             self.frame_module_banner.configure(
                 fg_color="#152228", border_width=1, border_color=theme["border"]
             )
-            self.lbl_module_mark.configure(text_color=theme["border"])
             self.lbl_module_title.configure(text_color=theme["title"])
             self.lbl_module_subtitle.configure(text_color=theme["muted"])
-            self.lbl_module_state.configure(text_color=theme["border"])
+            self.lbl_wakfu_background.place(relx=0, rely=0, relwidth=1, relheight=1)
+            self.lbl_wakfu_background.lower()
             if not self.frame_module_banner.winfo_manager():
                 self.frame_module_banner.pack(fill="x", padx=15, pady=(5, 6), before=self.frame_mode)
         else:
             self.frame_module_banner.pack_forget()
+            self.lbl_wakfu_background.place_forget()
         self.update_version_selector(version)
 
     def apply_translations(self):
@@ -500,7 +509,7 @@ class OrganizerGUI:
         self.lbl_controls.configure(text=self.app.i18n.t("label_controls", "Contrôler :"))
         self.lbl_versions.configure(text=self.app.i18n.t("label_versions", "Versions :"))
         self.lbl_keyboard_shortcuts.configure(text=self.app.i18n.t("label_keyboard_shortcuts", "Raccourcis Clavier"))
-        self.lbl_volume.configure(text=self.app.i18n.t("label_volume", "🔊 Volume :"))
+        self.lbl_volume.configure(text=self.app.i18n.t("label_volume", "Volume :"))
         self.btn_close_all.configure(text=self.app.i18n.t("btn_close_team", "Fermer Team"))
         self.btn_reset.configure(text=self.app.i18n.t("btn_reset_settings", "Reset Settings"))
         self.lbl_accounts.configure(text=self.app.i18n.t("label_active_accounts", "Comptes actifs"))
@@ -902,10 +911,13 @@ class OrganizerGUI:
             self.frame_fast_command.pack_forget()
             return
 
-        if not self.frame_fast_command.winfo_manager():
-            self.frame_fast_command.pack(
-                fill="x", padx=15, pady=(0, 5), before=self.frame_footer
-            )
+        # Réserve sa hauteur avant que le panneau de comptes ne prenne l'espace
+        # extensible : les deux commandes restent toujours entièrement visibles.
+        if self.frame_fast_command.winfo_manager():
+            self.frame_fast_command.pack_forget()
+        self.frame_fast_command.pack(
+            fill="x", padx=15, pady=(0, 5), before=self.frame_footer
+        )
 
         leader_name = self.app.config.data.get("leader_name", "").strip()
         if leader_name:
