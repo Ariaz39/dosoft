@@ -218,10 +218,9 @@ class OrganizerGUI:
             self.version_images[version] = self.load_selector_image(icon_name)
             button = ctk.CTkButton(
                 self.version_selector,
-                text=version,
+                text="",
                 image=self.version_images[version],
-                compound="left",
-                width=82,
+                width=36,
                 height=34,
                 corner_radius=7,
                 command=lambda selected=version: self.on_version_change(selected),
@@ -676,7 +675,7 @@ class OrganizerGUI:
         if not os.path.exists(path):
             return None
         image = Image.open(path)
-        return ctk.CTkImage(light_image=image, dark_image=image, size=(24, 24))
+        return ctk.CTkImage(light_image=image, dark_image=image, size=(28, 28))
 
     def update_version_selector(self, selected_version):
         for version, button in self.version_buttons.items():
