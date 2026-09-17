@@ -17,11 +17,11 @@ class WakfuTurnVisualWatcher:
     suppress the normal ``Fin du tour`` detection.
     """
 
-    def __init__(self, get_windows, on_turn_started, is_combat_active, interval=0.35):
+    def __init__(self, get_windows, on_turn_started, interval=0.35):
         self.get_windows = get_windows
         self.on_turn_started = on_turn_started
-        self.is_combat_active = is_combat_active
         self.interval = interval
+        self.combat_active = False
         self.end_turn_states = {}
         self.bonus_states = {}
         self.dimming_states = {}
@@ -36,14 +36,20 @@ class WakfuTurnVisualWatcher:
         while True:
             try:
                 live_handles = set()
+                turn_counter_visible = False
                 for account in self.get_windows():
                     hwnd = account["hwnd"]
                     live_handles.add(hwnd)
-                    has_end_turn, has_bonus, brightness = self.get_turn_indicators(hwnd)
+                    has_end_turn, has_bonus, brightness, has_turn_counter = self.get_turn_indicators(hwnd)
+                    turn_counter_visible = turn_counter_visible or has_turn_counter
+                    if has_end_turn or has_bonus:
+                        # A first actionable control starts a visual combat
+                        # session; no log-based combat lifecycle is used.
+                        self.combat_active = True
                     had_end_turn = self.end_turn_states.get(hwnd, False)
                     had_bonus = self.bonus_states.get(hwnd, False)
                     previous_brightness = self.previous_brightness.get(hwnd)
-                    has_dimming = self.is_combat_active() and (
+                    has_dimming = self.combat_active and (
                         previous_brightness is not None
                         and brightness <= previous_brightness * 0.72
                         and previous_brightness - brightness >= 15
@@ -76,6 +82,12 @@ class WakfuTurnVisualWatcher:
                 self.previous_brightness = {
                     hwnd: value for hwnd, value in self.previous_brightness.items() if hwnd in live_handles
                 }
+                # The ``Tour N`` counter remains visible during every player's
+                # and monster's turn. Its disappearance is the visual end of
+                # the combat session, so world lighting cannot trigger focus.
+                if self.combat_active and not turn_counter_visible:
+                    self.combat_active = False
+                    self.dimming_states.clear()
             except Exception:
                 # A closed/recreated Java window must not stop the watcher.
                 pass
@@ -83,14 +95,14 @@ class WakfuTurnVisualWatcher:
 
     @staticmethod
     def get_turn_indicators(hwnd):
-        """Return independent states and average game-view brightness."""
+        """Return independent states, brightness and combat HUD visibility."""
         if not win32gui.IsWindow(hwnd) or win32gui.IsIconic(hwnd):
-            return False, False, 0
+            return False, False, 0, False
 
         left, top, right, bottom = win32gui.GetWindowRect(hwnd)
         width, height = right - left, bottom - top
         if width < 300 or height < 300:
-            return False, False, 0
+            return False, False, 0, False
 
         window_dc = ctypes.windll.user32.GetWindowDC(hwnd)
         memory_dc = ctypes.windll.gdi32.CreateCompatibleDC(window_dc)
@@ -98,13 +110,13 @@ class WakfuTurnVisualWatcher:
         old_bitmap = ctypes.windll.gdi32.SelectObject(memory_dc, bitmap)
         try:
             if not ctypes.windll.user32.PrintWindow(hwnd, memory_dc, 2):
-                return False, False, 0
+                return False, False, 0, False
             # Copy the small lower-right area only. It contains the end-turn
             # button for any normal WAKFU window size.
             box = (int(width * 0.925), int(height * 0.88), int(width * 0.995), int(height * 0.99))
             crop_width, crop_height = box[2] - box[0], box[3] - box[1]
             if crop_width <= 0 or crop_height <= 0:
-                return False, False, 0
+                return False, False, 0, False
 
             buffer = ctypes.create_string_buffer(width * height * 4)
 
@@ -140,7 +152,8 @@ class WakfuTurnVisualWatcher:
             scene = image.crop((int(width * 0.10), int(height * 0.15), int(width * 0.90), int(height * 0.75)))
             red, green, blue = scene.resize((1, 1)).getpixel((0, 0))
             brightness = (red + green + blue) / 3
-            return has_end_turn_button, has_bonus_selection, brightness
+            has_turn_counter = WakfuTurnVisualWatcher.has_turn_counter(image)
+            return has_end_turn_button, has_bonus_selection, brightness, has_turn_counter
         finally:
             ctypes.windll.gdi32.SelectObject(memory_dc, old_bitmap)
             ctypes.windll.gdi32.DeleteObject(bitmap)
@@ -166,6 +179,17 @@ class WakfuTurnVisualWatcher:
             for red, green, blue in pixels
         )
         return light_text_pixels / (crop_width * crop_height) >= 0.025
+
+    @staticmethod
+    def has_turn_counter(image):
+        """Recognize the white ``Tour N`` combat counter at top right."""
+        width, height = image.size
+        box = (int(width * 0.925), int(height * 0.035), int(width * 0.995), int(height * 0.12))
+        pixels = image.crop(box).getdata()
+        white_pixels = sum(
+            red >= 190 and green >= 190 and blue >= 190 for red, green, blue in pixels
+        )
+        return white_pixels >= 80
 
     @staticmethod
     def has_end_turn_button(hwnd):
