@@ -40,6 +40,7 @@ from keyboard_layout_manager import KeyboardLayoutManager
 from wakfu_log_watcher import WakfuLogWatcher
 from wakfu_turn_visual_watcher import WakfuTurnVisualWatcher
 from wakfu_debug import write_wakfu_debug
+from resource_paths import skin_path
 
 
 def try_load_windows_layout(layout_name):
@@ -69,7 +70,13 @@ class OrganizerApp:
         self.mouse_hotkeys = {}
         self.mouse_states = {}
         
-        self.radial_focus = RadialMenu(self.gui.root, self.on_radial_focus_select, accent_color="#2ecc71", hover_color="#27ae60", center_icon_path="skin/character.png")
+        self.radial_focus = RadialMenu(
+            self.gui.root,
+            self.on_radial_focus_select,
+            accent_color="#2ecc71",
+            hover_color="#27ae60",
+            center_icon_path=skin_path("character"),
+        )
         
         saved_vol = self.config.data.get("volume_level", 50) / 100.0
         self.radial_focus.set_base_volume(saved_vol)

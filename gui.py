@@ -12,6 +12,7 @@ from PIL import Image, ImageTk
 from i18n_manager import I18nManager
 from config_manager import Config
 from app_version import APP_TITLE
+from resource_paths import resource_path, skin_path
 
 
 ctk.set_appearance_mode("Dark")  
@@ -209,9 +210,25 @@ class OrganizerGUI:
         self.lbl_versions = ctk.CTkLabel(self.frame_mode, text=self.app.i18n.t("label_versions", "Versions :"))
         self.lbl_versions.pack(side="left", padx=(20, 5), pady=5)
         
-        self.combo_version = ctk.CTkOptionMenu(self.frame_mode, values=["Unity", "Rétro", "Wakfu"], width=100, fg_color="#8e44ad", button_color="#9b59b6", button_hover_color="#8e44ad", command=self.on_version_change)
-        self.combo_version.set(cfg.get("game_version", "Unity"))
-        self.combo_version.pack(side="left", padx=5, pady=5)
+        self.version_selector = ctk.CTkFrame(self.frame_mode, fg_color="transparent")
+        self.version_selector.pack(side="left", padx=5, pady=3)
+        self.version_buttons = {}
+        self.version_images = {}
+        for version, icon_name in (("Unity", "unity"), ("Rétro", "retro"), ("Wakfu", "wakfu")):
+            self.version_images[version] = self.load_selector_image(icon_name)
+            button = ctk.CTkButton(
+                self.version_selector,
+                text=version,
+                image=self.version_images[version],
+                compound="left",
+                width=82,
+                height=34,
+                corner_radius=7,
+                command=lambda selected=version: self.on_version_change(selected),
+            )
+            button.pack(side="left", padx=2)
+            self.version_buttons[version] = button
+        self.update_version_selector(cfg.get("game_version", "Unity"))
 
         self.var_autofocus = ctk.BooleanVar(value=cfg.get(self._autofocus_config_key(), False))
         self.chk_autofocus = ctk.CTkCheckBox(self.frame_mode, text=self.app.i18n.t("label_auto_focus", "Auto-Focus 🔔"), variable=self.var_autofocus, command=self.toggle_autofocus, width=110)
@@ -416,11 +433,17 @@ class OrganizerGUI:
         game_version = self.app.config.data.get("game_version", "Unity")
         is_retro = game_version == "Rétro"
         uses_manual_classes = game_version in ("Rétro", "Wakfu")
-        manual_classes = [
+        retro_manual_classes = [
             "Inconnu", "Feca", "Osamodas", "Enutrof", "Sram", "Xelor", "Ecaflip",
             "Eniripsa", "Iop", "Cra", "Sadida", "Sacrieur", "Pandawa", "Roublard",
             "Zobal", "Steamer", "Eliotrope", "Huppermage", "Ouginak", "Forgelance",
         ]
+        wakfu_manual_classes = [
+            "Inconnu", "Feca", "Osamodas", "Enutrof", "Sram", "Xelor", "Ecaflip",
+            "Eniripsa", "Iop", "Cra", "Sadida", "Sacrieur", "Pandawa", "Roublard",
+            "Zobal", "Steamer", "Eliotrope", "Huppermage", "Ouginak", "Belaphon",
+        ]
+        manual_classes = retro_manual_classes if is_retro else wakfu_manual_classes
         
         for idx, acc in enumerate(accounts):
             row_frame = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
@@ -635,6 +658,7 @@ class OrganizerGUI:
     def on_version_change(self, choice):
         self.app.config.data["game_version"] = choice
         self.app.config.save()
+        self.update_version_selector(choice)
         self.var_autofocus.set(self.app.config.data.get(self._autofocus_config_key(), False))
         if choice in ("Rétro", "Wakfu"):
             self.chk_autofocus.pack(side="left", padx=(15, 5))
@@ -647,10 +671,27 @@ class OrganizerGUI:
         self.app.logic.set_mode(choice)
         self.app.current_idx = 0
 
+    def load_selector_image(self, icon_name):
+        path = resource_path("resources", "skin", f"{icon_name}.png")
+        if not os.path.exists(path):
+            return None
+        image = Image.open(path)
+        return ctk.CTkImage(light_image=image, dark_image=image, size=(24, 24))
+
+    def update_version_selector(self, selected_version):
+        for version, button in self.version_buttons.items():
+            is_selected = version == selected_version
+            button.configure(
+                fg_color="#8e44ad" if is_selected else "#34495e",
+                hover_color="#9b59b6" if is_selected else "#2c3e50",
+                border_width=2 if is_selected else 0,
+                border_color="#f1c40f" if is_selected else "#34495e",
+            )
+
     def get_class_image(self, class_name, is_retro=False):
         filename = f"{class_name}_retro" if is_retro and class_name != "Inconnu" else class_name
         if filename in self.skin_cache: return self.skin_cache[filename]
-        path = f"skin/{filename}.png"
+        path = skin_path(filename)
         if not os.path.exists(path): return None
         img = ctk.CTkImage(light_image=Image.open(path), dark_image=Image.open(path), size=(24, 24))
         self.skin_cache[filename] = img

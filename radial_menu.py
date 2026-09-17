@@ -3,6 +3,7 @@ import math
 import win32api
 import os
 from PIL import Image, ImageTk
+from resource_paths import skin_path
 
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import pygame
@@ -71,7 +72,7 @@ class RadialMenu:
         filename = f"{class_name}_retro" if getattr(self, 'is_retro', False) and class_name != "Inconnu" else class_name
         
         if filename in self.image_cache: return self.image_cache[filename]
-        path = f"skin/{filename}.png"
+        path = skin_path(filename, wheel=not filename.lower().endswith("_retro"))
         if not os.path.exists(path): return None
         try:
             img = Image.open(path).resize((36, 36), Image.Resampling.LANCZOS)
