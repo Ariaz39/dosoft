@@ -25,6 +25,9 @@ class WakfuTurnVisualWatcher:
         self.on_combat_state_changed = on_combat_state_changed
         self.interval = interval
         self.combat_active = False
+        self.combat_armed_at = None
+        self.activation_pending = False
+        self.activation_delay_seconds = 2.0
         self.end_turn_states = {}
         self.dimming_states = {}
         self.previous_brightness = {}
@@ -35,6 +38,8 @@ class WakfuTurnVisualWatcher:
         if self.combat_active == active:
             return
         self.combat_active = active
+        self.combat_armed_at = time.monotonic() if active else None
+        self.activation_pending = active
         self.end_turn_states.clear()
         self.dimming_states.clear()
         self.previous_brightness.clear()
@@ -79,11 +84,37 @@ class WakfuTurnVisualWatcher:
                     if self.combat_active and has_dimming and not had_dimming:
                         trigger_reasons.append("screen_dimming")
                     if trigger_reasons:
+                        # A manual combat activation may occur while WAKFU is
+                        # still repainting its UI.  Never let those transient
+                        # frames steal focus: wait two complete seconds, then
+                        # evaluate the screen state fresh.
+                        if self.combat_active and self.combat_armed_at is not None:
+                            elapsed = time.monotonic() - self.combat_armed_at
+                            if elapsed < self.activation_delay_seconds:
+                                continue
+                        self.activation_pending = False
                         reason = "+".join(trigger_reasons)
                         write_wakfu_debug(
                             f"FOCUS_TRIGGER reason={reason} hwnd={hex(hwnd)} combat={self.combat_active} "
                             f"end_turn={has_end_turn} bonus_observation={has_bonus} tour_counter={has_turn_counter} "
                             f"brightness={brightness:.1f} previous={previous_brightness}"
+                        )
+                        self.on_turn_started(hwnd, reason)
+                    elif (
+                        self.combat_active
+                        and self.activation_pending
+                        and self.combat_armed_at is not None
+                        and time.monotonic() - self.combat_armed_at >= self.activation_delay_seconds
+                        and has_end_turn
+                    ):
+                        # The end-turn control may have been visible throughout
+                        # the arming delay, so it has no new edge to trigger.
+                        # Apply it once after the stable two-second wait.
+                        self.activation_pending = False
+                        reason = "activation_ready"
+                        write_wakfu_debug(
+                            f"FOCUS_TRIGGER reason={reason} hwnd={hex(hwnd)} combat=True "
+                            f"end_turn={has_end_turn} tour_counter={has_turn_counter}"
                         )
                         self.on_turn_started(hwnd, reason)
                 self.end_turn_states = {
