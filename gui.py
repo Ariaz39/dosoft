@@ -327,7 +327,11 @@ class OrganizerGUI:
         self.update_version_selector(cfg.get("game_version", "Unity"))
 
         self.var_autofocus = ctk.BooleanVar(value=cfg.get(self._autofocus_config_key(), False))
-        self.chk_autofocus = ctk.CTkCheckBox(self.frame_mode, text=self.app.i18n.t("label_auto_focus", "Auto-Focus 🔔"), variable=self.var_autofocus, command=self.toggle_autofocus, width=110)
+        self.autofocus_image = self.load_selector_image("focus")
+        self.chk_autofocus = ctk.CTkButton(
+            self.frame_mode, text="", image=self.autofocus_image,
+            width=36, height=34, corner_radius=7, command=self.toggle_autofocus,
+        )
         
         if cfg.get("game_version", "Unity") in ("Rétro", "Wakfu"):
             self.chk_autofocus.pack(side="left", padx=(15, 5))
@@ -477,7 +481,7 @@ class OrganizerGUI:
             fg_color=theme["accent"], button_color=theme["panel_alt"],
             button_hover_color=theme["accent_hover"],
         )
-        self.chk_autofocus.configure(fg_color=theme["accent"], hover_color=theme["accent_hover"], text_color=theme["muted"])
+        self.update_autofocus_button()
         self.slider_volume.configure(progress_color=theme["accent"], button_color=theme["border"], button_hover_color=theme["title"])
         self.frame_fast_command.configure(
             fg_color=theme["panel"], border_width=1 if is_wakfu else 0,
@@ -526,7 +530,7 @@ class OrganizerGUI:
         self.btn_sort_win.configure(text=self.app.i18n.t("btn_sort_taskbar", "Trier Barre Windows"))
         self.chk_tooltips.configure(text=self.app.i18n.t("label_tooltips", "Bulles"))
         self.btn_hide.configure(text=self.app.i18n.t("btn_hide_ui", "Cacher l'UI"))
-        self.chk_autofocus.configure(text=self.app.i18n.t("label_auto_focus", "Auto-Focus 🔔"))
+        self.chk_autofocus.configure(text="")
         if hasattr(self, 'settings_window') and self.settings_window.winfo_exists():
             self.settings_window.apply_translations()
         for config_key, (label_widget, label_key) in self.hotkey_labels.items():
@@ -717,9 +721,22 @@ class OrganizerGUI:
         return "auto_focus_retro"
 
     def toggle_autofocus(self):
+        self.var_autofocus.set(not self.var_autofocus.get())
         self.app.config.data[self._autofocus_config_key()] = self.var_autofocus.get()
         self.app.config.save()
         self.app.sync_wakfu_autofocus_overlay()
+        self.update_autofocus_button()
+
+    def update_autofocus_button(self):
+        """Render the image-only autofocus switch with the selected-game outline."""
+        theme = getattr(self, "game_theme", GAME_THEMES["Unity"])
+        active = self.var_autofocus.get()
+        self.chk_autofocus.configure(
+            fg_color=theme["accent"] if active else theme["panel_alt"],
+            hover_color=theme["accent_hover"],
+            border_width=2 if active else 0,
+            border_color=theme["border"] if active else theme["panel_alt"],
+        )
         
     def on_volume_change(self, value): self.app.update_volume(int(value))
     
@@ -867,6 +884,7 @@ class OrganizerGUI:
         self.update_version_selector(choice)
         self.app.sync_wakfu_autofocus_overlay()
         self.var_autofocus.set(self.app.config.data.get(self._autofocus_config_key(), False))
+        self.update_autofocus_button()
         if choice in ("Rétro", "Wakfu"):
             self.chk_autofocus.pack(side="left", padx=(15, 5))
         else:
