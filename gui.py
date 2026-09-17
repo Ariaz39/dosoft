@@ -40,6 +40,7 @@ WAKFU_THEMES = {
         "accent": "#176c7c", "accent_hover": "#23889a", "border": "#c2a468",
         "title": "#f2e5c2", "muted": "#b9c6c2", "banner": "#152228",
         "toast": "#172126", "clear": "#9a3935", "clear_hover": "#b94c45",
+        "corner_radius": 13,
         "background_image": "wakfu_panel_texture.png",
         "focus_icon": "focus", "volume_icon": "volume",
         "follow_icon": "follow", "group_icon": "groupe",
@@ -49,6 +50,7 @@ WAKFU_THEMES = {
         "accent": "#7447d5", "accent_hover": "#9a6df2", "border": "#46d8ed",
         "title": "#f1e9ff", "muted": "#c5bedf", "banner": "#181035",
         "toast": "#1a1240", "clear": "#8f315f", "clear_hover": "#bc497d",
+        "corner_radius": 13,
         "background_image": "espace.jpg",
         "focus_icon": "focus", "volume_icon": "volume",
         "follow_icon": "follow", "group_icon": "groupe",
@@ -61,6 +63,7 @@ RETRO_THEMES = {
         "accent": "#c97625", "accent_hover": "#e28d35", "border": "#e4d18e",
         "title": "#f4e6b7", "muted": "#d5cba7", "banner": "#5a513c",
         "toast": "#544b37", "clear": "#9f4230", "clear_hover": "#c65a40",
+        "corner_radius": 22,
         "background_image": "retro_parchment_texture.png",
         "focus_icon": "focus", "volume_icon": "volume",
         "follow_icon": "follow", "group_icon": "groupe",
@@ -314,7 +317,9 @@ class OrganizerGUI:
             "resources", "skin", self.game_theme.get("background_image", "wakfu_panel_texture.png")
         )
         if os.path.exists(texture_path):
-            self.wakfu_background_texture = self.create_rounded_theme_image(texture_path, (700, 850), 18)
+            self.wakfu_background_texture = self.create_rounded_theme_image(
+                texture_path, (700, 850), self.game_theme.get("corner_radius", 13) + 5
+            )
         self.lbl_wakfu_background = ctk.CTkLabel(
             self.root, text="", image=self.wakfu_background_texture, fg_color="transparent"
         )
@@ -352,7 +357,9 @@ class OrganizerGUI:
         )
         self.wakfu_banner_texture = None
         if os.path.exists(texture_path):
-            self.wakfu_banner_texture = self.create_rounded_theme_image(texture_path, (670, 58), 13)
+            self.wakfu_banner_texture = self.create_rounded_theme_image(
+                texture_path, (670, 58), self.game_theme.get("corner_radius", 13)
+            )
         self.lbl_module_texture = ctk.CTkLabel(
             self.frame_module_banner, text="", image=self.wakfu_banner_texture,
             fg_color="transparent",
@@ -534,8 +541,9 @@ class OrganizerGUI:
         path = resource_path("resources", "skin", image_name)
         if not os.path.exists(path):
             return
-        self.wakfu_background_texture = self.create_rounded_theme_image(path, (700, 850), 18)
-        self.wakfu_banner_texture = self.create_rounded_theme_image(path, (670, 58), 13)
+        radius = self.game_theme.get("corner_radius", 13)
+        self.wakfu_background_texture = self.create_rounded_theme_image(path, (700, 850), radius + 5)
+        self.wakfu_banner_texture = self.create_rounded_theme_image(path, (670, 58), radius)
         self.lbl_wakfu_background.configure(image=self.wakfu_background_texture)
         self.lbl_module_texture.configure(image=self.wakfu_banner_texture)
 
@@ -571,7 +579,7 @@ class OrganizerGUI:
                 fg_color=theme["panel"],
                 border_width=1 if has_module_theme else 0,
                 border_color=theme["border"] if has_module_theme else theme["panel"],
-                corner_radius=13 if has_module_theme else 10,
+                corner_radius=theme.get("corner_radius", 13) if has_module_theme else 10,
             )
         self.header_f.configure(fg_color="transparent")
         self.lbl_app_title.configure(text_color=theme["title"])
@@ -589,13 +597,13 @@ class OrganizerGUI:
             self.btn_settings, self.btn_tuto, self.btn_refresh, self.btn_sort_win,
             self.btn_manage_binds, self.btn_close_all, self.btn_reset,
         ):
-            button.configure(corner_radius=10 if has_module_theme else 6)
+            button.configure(corner_radius=max(10, theme.get("corner_radius", 13) - 4) if has_module_theme else 6)
         for button in self.hotkey_btns.values():
-            button.configure(fg_color=theme["accent"], hover_color=theme["accent_hover"], corner_radius=10 if has_module_theme else 6)
+            button.configure(fg_color=theme["accent"], hover_color=theme["accent_hover"], corner_radius=max(10, theme.get("corner_radius", 13) - 4) if has_module_theme else 6)
         clear_color = theme.get("clear", "#c0392b") if has_module_theme else "#c0392b"
         clear_hover = theme.get("clear_hover", "#e74c3c") if has_module_theme else "#e74c3c"
         for button in self.hotkey_clear_buttons:
-            button.configure(fg_color=clear_color, hover_color=clear_hover, corner_radius=10 if has_module_theme else 6)
+            button.configure(fg_color=clear_color, hover_color=clear_hover, corner_radius=max(10, theme.get("corner_radius", 13) - 4) if has_module_theme else 6)
         self.combo_mode.configure(
             fg_color=theme["accent"], button_color=theme["panel_alt"],
             button_hover_color=theme["accent_hover"],
@@ -605,11 +613,11 @@ class OrganizerGUI:
         self.frame_fast_command.configure(
             fg_color=theme["panel"], border_width=1 if has_module_theme else 0,
             border_color=theme["border"] if has_module_theme else theme["panel"],
-            corner_radius=13 if has_module_theme else 8,
+            corner_radius=theme.get("corner_radius", 13) if has_module_theme else 8,
         )
         self.fast_invite_separator.configure(fg_color=theme["border"])
         for button in (self.btn_copy_fast_command, self.btn_copy_fast_invites):
-            button.configure(fg_color=theme["accent"], hover_color=theme["accent_hover"], corner_radius=10 if has_module_theme else 6)
+            button.configure(fg_color=theme["accent"], hover_color=theme["accent_hover"], corner_radius=max(10, theme.get("corner_radius", 13) - 4) if has_module_theme else 6)
         for label in (
             self.lbl_fast_command, self.lbl_fast_invite,
             self.lbl_fast_command_value, self.lbl_fast_invite_value,
@@ -617,7 +625,8 @@ class OrganizerGUI:
             label.configure(text_color=theme["title"])
         if has_module_theme:
             self.frame_module_banner.configure(
-                fg_color=theme.get("banner", theme["panel"]), border_width=1, border_color=theme["border"]
+                fg_color=theme.get("banner", theme["panel"]), border_width=1,
+                border_color=theme["border"], corner_radius=theme.get("corner_radius", 13)
             )
             self.lbl_module_title.configure(text="WAKFU" if is_wakfu else "DOFUS RÉTRO")
             self.lbl_module_subtitle.configure(text="GESTION DE GROUPE")
