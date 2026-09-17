@@ -12,7 +12,7 @@ from resource_paths import resource_path
 
 
 class WakfuAutofocusOverlay:
-    """Keep one fixed overlay visible only while a WAKFU client has focus."""
+    """Keep one fixed overlay visible whenever WAKFU auto-focus is enabled."""
 
     DEFAULT_POSITION = (0.59, 0.56)
     SIZE = (64, 78)
@@ -29,8 +29,8 @@ class WakfuAutofocusOverlay:
         self.window = tk.Toplevel(parent_root)
         self.window.withdraw()
         self.window.overrideredirect(True)
-        # One topmost popup. It is withdrawn whenever WAKFU is not foreground,
-        # so it never covers a browser, DOSOFT, or another application.
+        # The user explicitly wants this control permanently on top while the
+        # WAKFU Auto-Focus option is enabled.
         self.window.attributes("-topmost", True)
         self.window.configure(bg="#1c252d")
         self.window.resizable(False, False)
@@ -77,9 +77,7 @@ class WakfuAutofocusOverlay:
         try:
             accounts = self.get_windows() if self._is_enabled() else []
             handles = {account["hwnd"] for account in accounts if win32gui.IsWindow(account["hwnd"])}
-            foreground = win32gui.GetForegroundWindow()
-            overlay_is_foreground = foreground == self.window.winfo_id()
-            if handles and (foreground in handles or overlay_is_foreground):
+            if handles:
                 if not self.position_initialized:
                     self._restore_position(next(iter(handles)))
                 self.window.deiconify()
