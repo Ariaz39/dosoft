@@ -72,6 +72,8 @@ class OrganizerApp:
         self.mouse_states = {}
         self.pending_wakfu_focus = None
         self.wakfu_focus_defer_scheduled = False
+        self.pending_cycle_direction = None
+        self.cycle_defer_scheduled = False
         
         self.radial_focus = RadialMenu(
             self.gui.root,
@@ -555,15 +557,36 @@ class OrganizerApp:
                     break
 
     def next_char(self):
-        cycle_list = self.logic.get_cycle_list()
-        if not cycle_list: return
-        self.current_idx = (self.current_idx + 1) % len(cycle_list)
-        self.logic.focus_window(cycle_list[self.current_idx]['hwnd'])
+        self._request_cycle_step(1)
 
     def prev_char(self):
+        self._request_cycle_step(-1)
+
+    def _request_cycle_step(self, direction):
+        """Defer TAB/² page changes until all physical mouse buttons are up."""
+        if self._mouse_button_is_down():
+            self.pending_cycle_direction = direction
+            if not self.cycle_defer_scheduled:
+                self.cycle_defer_scheduled = True
+                self.gui.root.after(30, self._apply_pending_cycle_step)
+            return
+        self._apply_cycle_step(direction)
+
+    def _apply_pending_cycle_step(self):
+        if self._mouse_button_is_down():
+            self.gui.root.after(30, self._apply_pending_cycle_step)
+            return
+        direction = self.pending_cycle_direction
+        self.pending_cycle_direction = None
+        self.cycle_defer_scheduled = False
+        if direction is not None:
+            self._apply_cycle_step(direction)
+
+    def _apply_cycle_step(self, direction):
         cycle_list = self.logic.get_cycle_list()
-        if not cycle_list: return
-        self.current_idx = (self.current_idx - 1) % len(cycle_list)
+        if not cycle_list:
+            return
+        self.current_idx = (self.current_idx + direction) % len(cycle_list)
         self.logic.focus_window(cycle_list[self.current_idx]['hwnd'])
 
     def quit_app(self):
