@@ -25,7 +25,6 @@ class WakfuTurnVisualWatcher:
         self.interval = interval
         self.combat_active = False
         self.end_turn_states = {}
-        self.bonus_states = {}
         self.dimming_states = {}
         self.previous_brightness = {}
 
@@ -44,17 +43,16 @@ class WakfuTurnVisualWatcher:
                     live_handles.add(hwnd)
                     has_end_turn, has_bonus, brightness, has_turn_counter = self.get_turn_indicators(hwnd)
                     turn_counter_visible = turn_counter_visible or has_turn_counter
-                    if has_end_turn or has_bonus:
+                    if has_end_turn:
                         # A first actionable control starts a visual combat
                         # session; no log-based combat lifecycle is used.
                         if not self.combat_active:
                             write_wakfu_debug(
-                                f"COMBAT_START hwnd={hex(hwnd)} end_turn={has_end_turn} bonus={has_bonus} "
+                                f"COMBAT_START hwnd={hex(hwnd)} end_turn={has_end_turn} "
                                 f"tour_counter={has_turn_counter} brightness={brightness:.1f}"
                             )
                         self.combat_active = True
                     had_end_turn = self.end_turn_states.get(hwnd, False)
-                    had_bonus = self.bonus_states.get(hwnd, False)
                     previous_brightness = self.previous_brightness.get(hwnd)
                     has_dimming = self.combat_active and (
                         previous_brightness is not None
@@ -63,7 +61,6 @@ class WakfuTurnVisualWatcher:
                     )
                     had_dimming = self.dimming_states.get(hwnd, False)
                     self.end_turn_states[hwnd] = has_end_turn
-                    self.bonus_states[hwnd] = has_bonus
                     self.dimming_states[hwnd] = has_dimming
                     self.previous_brightness[hwnd] = brightness
 
@@ -74,23 +71,18 @@ class WakfuTurnVisualWatcher:
                     trigger_reasons = []
                     if has_end_turn and not had_end_turn:
                         trigger_reasons.append("end_turn")
-                    if has_bonus and not had_bonus:
-                        trigger_reasons.append("bonus_skip")
                     if has_dimming and not had_dimming:
                         trigger_reasons.append("screen_dimming")
                     if trigger_reasons:
                         reason = "+".join(trigger_reasons)
                         write_wakfu_debug(
                             f"FOCUS_TRIGGER reason={reason} hwnd={hex(hwnd)} combat={self.combat_active} "
-                            f"end_turn={has_end_turn} bonus={has_bonus} tour_counter={has_turn_counter} "
+                            f"end_turn={has_end_turn} bonus_observation={has_bonus} tour_counter={has_turn_counter} "
                             f"brightness={brightness:.1f} previous={previous_brightness}"
                         )
                         self.on_turn_started(hwnd, reason)
                 self.end_turn_states = {
                     hwnd: state for hwnd, state in self.end_turn_states.items() if hwnd in live_handles
-                }
-                self.bonus_states = {
-                    hwnd: state for hwnd, state in self.bonus_states.items() if hwnd in live_handles
                 }
                 self.dimming_states = {
                     hwnd: state for hwnd, state in self.dimming_states.items() if hwnd in live_handles
