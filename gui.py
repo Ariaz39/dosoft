@@ -325,16 +325,8 @@ class OrganizerGUI:
             command=self.copy_fast_command,
         )
         self.btn_copy_fast_command.pack(side="right", padx=8, pady=7)
-        self.lbl_fast_command_hint = ctk.CTkLabel(
-            self.frame_fast_command,
-            text="ⓘ À copier dans un raccourci chat, dans les paramètres de WAKFU.",
-            text_color="#aebbc4", font=ctk.CTkFont(size=11), justify="left", anchor="w",
-            wraplength=620,
-        )
-        self.lbl_fast_command_hint.pack(fill="x", padx=10, pady=(2, 7))
-
         self.fast_invite_separator = ctk.CTkFrame(self.frame_fast_command, height=1, fg_color="#47606f")
-        self.fast_invite_separator.pack(fill="x", padx=10, pady=(0, 2))
+        self.fast_invite_separator.pack(fill="x", padx=10, pady=(2, 2))
         self.frame_fast_invite_row = ctk.CTkFrame(self.frame_fast_command, fg_color="transparent")
         self.frame_fast_invite_row.pack(fill="x", padx=2, pady=(0, 0))
         self.lbl_fast_invite = ctk.CTkLabel(
@@ -352,13 +344,6 @@ class OrganizerGUI:
             command=self.copy_fast_invites,
         )
         self.btn_copy_fast_invites.pack(side="right", padx=8, pady=7)
-        self.lbl_fast_invite_hint = ctk.CTkLabel(
-            self.frame_fast_command,
-            text="ⓘ À copier dans un raccourci chat, dans les paramètres de WAKFU.",
-            text_color="#aebbc4", font=ctk.CTkFont(size=11), justify="left", anchor="w",
-            wraplength=620,
-        )
-        self.lbl_fast_invite_hint.pack(fill="x", padx=10, pady=(2, 7))
         
         # --- CORRECTION PIED DE PAGE ---
         self.frame_footer = ctk.CTkFrame(self.root, fg_color="transparent")
