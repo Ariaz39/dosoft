@@ -55,10 +55,24 @@ WAKFU_THEMES = {
     },
 }
 
+RETRO_THEMES = {
+    "1": {
+        "background": "#756c50", "panel": "#494536", "panel_alt": "#665e45",
+        "accent": "#c97625", "accent_hover": "#e28d35", "border": "#e4d18e",
+        "title": "#f4e6b7", "muted": "#d5cba7", "banner": "#5a513c",
+        "toast": "#544b37", "clear": "#9f4230", "clear_hover": "#c65a40",
+        "background_image": "retro_parchment_texture.png",
+        "focus_icon": "focus", "volume_icon": "volume",
+        "follow_icon": "follow", "group_icon": "groupe",
+    },
+}
+
 
 def selected_game_theme(config):
     if config.get("game_version", "Unity") == "Wakfu":
         return WAKFU_THEMES.get(str(config.get("wakfu_theme", "1")), WAKFU_THEMES["1"])
+    if config.get("game_version") == "Rétro":
+        return RETRO_THEMES.get(str(config.get("retro_theme", "1")), RETRO_THEMES["1"])
     return GAME_THEMES.get(config.get("game_version"), GAME_THEMES["Unity"])
 
 class SettingsWindow(ctk.CTkToplevel):
@@ -75,11 +89,11 @@ class SettingsWindow(ctk.CTkToplevel):
         self.scroll_container = ctk.CTkScrollableFrame(self, fg_color="transparent")
         self.scroll_container.pack(fill="both", expand=True, padx=5, pady=5)
         theme = parent_gui.game_theme
-        is_wakfu = self.app.config.data.get("game_version") == "Wakfu"
-        input_color = theme["accent"] if is_wakfu else "#3a7ebf"
-        input_hover = theme["accent_hover"] if is_wakfu else "#1f538d"
-        clear_color = theme.get("clear", "#c0392b") if is_wakfu else "#c0392b"
-        clear_hover = theme.get("clear_hover", "#e74c3c") if is_wakfu else "#e74c3c"
+        is_module_theme = self.app.config.data.get("game_version") in ("Wakfu", "Rétro")
+        input_color = theme["accent"] if is_module_theme else "#3a7ebf"
+        input_hover = theme["accent_hover"] if is_module_theme else "#1f538d"
+        clear_color = theme.get("clear", "#c0392b") if is_module_theme else "#c0392b"
+        clear_hover = theme.get("clear_hover", "#e74c3c") if is_module_theme else "#e74c3c"
 
         title_font = ctk.CTkFont(size=16, weight="bold")
 
@@ -144,6 +158,17 @@ class SettingsWindow(ctk.CTkToplevel):
         )
         self.menu_wakfu_theme.pack(side="right", padx=8, pady=8)
 
+        self.frame_retro_theme = ctk.CTkFrame(self.scroll_container)
+        self.frame_retro_theme.pack(fill="x", padx=10, pady=5)
+        self.lbl_retro_theme = ctk.CTkLabel(self.frame_retro_theme, text="Thème Rétro")
+        self.lbl_retro_theme.pack(side="left", padx=8, pady=8)
+        self.var_retro_theme = ctk.StringVar(value=str(self.app.config.data.get("retro_theme", "1")))
+        self.menu_retro_theme = ctk.CTkOptionMenu(
+            self.frame_retro_theme, values=list(RETRO_THEMES.keys()), variable=self.var_retro_theme,
+            command=self.on_retro_theme_change,
+        )
+        self.menu_retro_theme.pack(side="right", padx=8, pady=8)
+
         frame_language = ctk.CTkFrame(self.scroll_container)
         frame_language.pack(fill="x", padx=10, pady=5)
         self.lbl_language = ctk.CTkLabel(frame_language, text=self.app.i18n.t("settings_language", "Langue"))
@@ -187,6 +212,7 @@ class SettingsWindow(ctk.CTkToplevel):
         self.app.config.data["language"] = self.var_language.get()
         self.app.config.data["keyboard_layout"] = self.var_keyboard_layout.get()
         self.app.config.data["wakfu_theme"] = self.var_wakfu_theme.get()
+        self.app.config.data["retro_theme"] = self.var_retro_theme.get()
         self.app.i18n.set_locale(self.var_language.get())
         self.app.keymaps.set_layout(self.var_keyboard_layout.get())
         self.app.setup_hotkeys()
@@ -200,6 +226,9 @@ class SettingsWindow(ctk.CTkToplevel):
             self.title(self.app.i18n.t("settings_title", "⚙️ Paramètres"))
 
     def on_wakfu_theme_change(self, _choice):
+        self.save_settings()
+
+    def on_retro_theme_change(self, _choice):
         self.save_settings()
             
     def on_notif_api_change(self, choice):
@@ -224,6 +253,7 @@ class SettingsWindow(ctk.CTkToplevel):
         self.lbl_hk.configure(text=self.app.i18n.t("settings_hotkey", "Raccourci :"))
         self.lbl_wakfu_autofocus.configure(text="Auto-Focus WAKFU")
         self.lbl_wakfu_theme.configure(text="Thème WAKFU")
+        self.lbl_retro_theme.configure(text="Thème Rétro")
         self.lbl_language.configure(text=self.app.i18n.t("settings_language", "Langue"))
         self.lbl_keyboard.configure(text=self.app.i18n.t("settings_keyboard_layout", "Disposition clavier"))
         self.btn_close.configure(text=self.app.i18n.t("settings_close", "Fermer"))
@@ -504,8 +534,8 @@ class OrganizerGUI:
         self.skin_cache = {} 
         self.apply_game_theme()
 
-    def refresh_wakfu_theme_images(self):
-        """Reload theme-specific background resources when the cosmetic theme changes."""
+    def refresh_module_theme_images(self):
+        """Reload game-theme backgrounds when the cosmetic theme changes."""
         image_name = self.game_theme.get("background_image", "wakfu_panel_texture.png")
         path = resource_path("resources", "skin", image_name)
         if not os.path.exists(path):
@@ -525,9 +555,11 @@ class OrganizerGUI:
         version = self.app.config.data.get("game_version", "Unity")
         theme = selected_game_theme(self.app.config.data)
         is_wakfu = version == "Wakfu"
+        is_retro = version == "Rétro"
+        has_module_theme = is_wakfu or is_retro
         self.game_theme = theme
-        if is_wakfu:
-            self.refresh_wakfu_theme_images()
+        if has_module_theme:
+            self.refresh_module_theme_images()
 
         self.root.configure(fg_color=theme["background"])
         self.lbl_feedback.configure(fg_color=theme.get("toast", theme["panel"]))
@@ -537,8 +569,8 @@ class OrganizerGUI:
         ):
             frame.configure(
                 fg_color=theme["panel"],
-                border_width=1 if is_wakfu else 0,
-                border_color=theme["border"] if is_wakfu else theme["panel"],
+                border_width=1 if has_module_theme else 0,
+                border_color=theme["border"] if has_module_theme else theme["panel"],
             )
         self.header_f.configure(fg_color="transparent")
         self.lbl_app_title.configure(text_color=theme["title"])
@@ -554,8 +586,8 @@ class OrganizerGUI:
         self.btn_manage_binds.configure(fg_color=theme["panel_alt"], hover_color=theme["accent"])
         for button in self.hotkey_btns.values():
             button.configure(fg_color=theme["accent"], hover_color=theme["accent_hover"])
-        clear_color = theme.get("clear", "#c0392b") if is_wakfu else "#c0392b"
-        clear_hover = theme.get("clear_hover", "#e74c3c") if is_wakfu else "#e74c3c"
+        clear_color = theme.get("clear", "#c0392b") if has_module_theme else "#c0392b"
+        clear_hover = theme.get("clear_hover", "#e74c3c") if has_module_theme else "#e74c3c"
         for button in self.hotkey_clear_buttons:
             button.configure(fg_color=clear_color, hover_color=clear_hover)
         self.combo_mode.configure(
@@ -565,8 +597,8 @@ class OrganizerGUI:
         self.update_autofocus_button()
         self.slider_volume.configure(progress_color=theme["accent"], button_color=theme["border"], button_hover_color=theme["title"])
         self.frame_fast_command.configure(
-            fg_color=theme["panel"], border_width=1 if is_wakfu else 0,
-            border_color=theme["border"] if is_wakfu else theme["panel"],
+            fg_color=theme["panel"], border_width=1 if has_module_theme else 0,
+            border_color=theme["border"] if has_module_theme else theme["panel"],
         )
         self.fast_invite_separator.configure(fg_color=theme["border"])
         for button in (self.btn_copy_fast_command, self.btn_copy_fast_invites):
@@ -576,10 +608,12 @@ class OrganizerGUI:
             self.lbl_fast_command_value, self.lbl_fast_invite_value,
         ):
             label.configure(text_color=theme["title"])
-        if is_wakfu:
+        if has_module_theme:
             self.frame_module_banner.configure(
                 fg_color=theme.get("banner", theme["panel"]), border_width=1, border_color=theme["border"]
             )
+            self.lbl_module_title.configure(text="WAKFU" if is_wakfu else "DOFUS RÉTRO")
+            self.lbl_module_subtitle.configure(text="GESTION DE GROUPE")
             self.lbl_module_title.configure(text_color=theme["title"])
             self.lbl_module_subtitle.configure(text_color=theme["muted"])
             self.lbl_wakfu_background.place(relx=0, rely=0, relwidth=1, relheight=1)
@@ -839,12 +873,12 @@ class OrganizerGUI:
         
         self.hotkey_btns[config_key] = btn 
         
-        is_wakfu = self.app.config.data.get("game_version") == "Wakfu"
+        is_module_theme = self.app.config.data.get("game_version") in ("Wakfu", "Rétro")
         theme = getattr(self, "game_theme", GAME_THEMES["Unity"])
         btn_x = ctk.CTkButton(
             parent, text="✖", width=25,
-            fg_color=theme.get("clear", "#c0392b") if is_wakfu else "#c0392b",
-            hover_color=theme.get("clear_hover", "#e74c3c") if is_wakfu else "#e74c3c",
+            fg_color=theme.get("clear", "#c0392b") if is_module_theme else "#c0392b",
+            hover_color=theme.get("clear_hover", "#e74c3c") if is_module_theme else "#e74c3c",
             command=lambda: self.clear_key(config_key, btn),
         )
         btn_x.grid(row=row, column=col_offset+2, padx=(0, 10))
