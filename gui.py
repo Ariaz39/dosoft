@@ -190,11 +190,16 @@ class OrganizerGUI:
         
         screen_w = self.root.winfo_screenwidth()
         screen_h = self.root.winfo_screenheight()
+        # Taille validée pour la bêta : 700x880 à l'écran, barre de titre Windows
+        # comprise (Tk reçoit ici les 700x850 de la zone cliente).
         win_w = 700
-        win_h = min(screen_h - 80, 850) 
+        win_h = 850
         x_pos = int((screen_w / 2) - (win_w / 2))
         y_pos = int((screen_h / 2) - (win_h / 2))
         self.root.geometry(f"{win_w}x{win_h}+{x_pos}+{y_pos}") 
+        self.root.minsize(win_w, win_h)
+        self.root.maxsize(win_w, win_h)
+        self.root.resizable(False, False)
         
         self.root.attributes("-topmost", True)
         self.root.protocol("WM_DELETE_WINDOW", self.hide_to_tray)
@@ -413,7 +418,7 @@ class OrganizerGUI:
         
         # --- CORRECTION PIED DE PAGE ---
         self.frame_footer = ctk.CTkFrame(self.root, fg_color="transparent")
-        self.frame_footer.pack(side="bottom", fill="x", padx=15, pady=(0, 15))
+        self.frame_footer.pack(side="bottom", fill="x", padx=15, pady=(0, 8))
         
         self.btn_refresh = ctk.CTkButton(self.frame_footer, text=self.app.i18n.t("btn_refresh", "Rafraîchir"), command=self.original_app_refresh, width=80)
         self.btn_refresh.pack(side="left")
@@ -916,7 +921,7 @@ class OrganizerGUI:
         if self.frame_fast_command.winfo_manager():
             self.frame_fast_command.pack_forget()
         self.frame_fast_command.pack(
-            fill="x", padx=15, pady=(0, 5), before=self.frame_footer
+            fill="x", padx=15, pady=(0, 6), before=self.frame_footer
         )
 
         leader_name = self.app.config.data.get("leader_name", "").strip()
