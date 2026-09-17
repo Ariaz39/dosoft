@@ -1,4 +1,4 @@
-"""Detect the active WAKFU turn from the game's own end-turn control."""
+"""Detect the active WAKFU turn from the game's own visual controls."""
 
 import ctypes
 import threading
@@ -9,10 +9,10 @@ import win32gui
 
 
 class WakfuTurnVisualWatcher:
-    """Watch WAKFU windows for the visible ``Fin du tour`` control.
+    """Watch WAKFU windows for controls visible only during the player's turn.
 
-    WAKFU's shared log has no unambiguous turn-start event.  The button is a
-    direct UI state: it is rendered only in the window whose player can act.
+    WAKFU's shared log has no unambiguous turn-start event.  The end-turn
+    button and the six-card bonus selection both identify the active player.
     """
 
     def __init__(self, get_windows, on_turn_started, interval=0.35):
@@ -33,7 +33,7 @@ class WakfuTurnVisualWatcher:
                 for account in self.get_windows():
                     hwnd = account["hwnd"]
                     live_handles.add(hwnd)
-                    is_active = self.has_end_turn_button(hwnd)
+                    is_active = self.has_active_turn_indicator(hwnd)
                     was_active = self.states.get(hwnd, False)
                     self.states[hwnd] = is_active
                     if is_active and not was_active:
@@ -47,8 +47,8 @@ class WakfuTurnVisualWatcher:
             time.sleep(self.interval)
 
     @staticmethod
-    def has_end_turn_button(hwnd):
-        """Return whether WAKFU's large beige end-turn control is visible."""
+    def has_active_turn_indicator(hwnd):
+        """Return whether an end-turn or bonus-selection control is visible."""
         if not win32gui.IsWindow(hwnd) or win32gui.IsIconic(hwnd):
             return False
 
@@ -64,7 +64,6 @@ class WakfuTurnVisualWatcher:
         try:
             if not ctypes.windll.user32.PrintWindow(hwnd, memory_dc, 2):
                 return False
-            image = Image.new("RGB", (width, height))
             # Copy the small lower-right area only. It contains the end-turn
             # button for any normal WAKFU window size.
             box = (int(width * 0.925), int(height * 0.88), int(width * 0.995), int(height * 0.99))
@@ -98,9 +97,33 @@ class WakfuTurnVisualWatcher:
                 red >= 180 and green >= 150 and blue <= 145 and red - green <= 60 and green - blue >= 25
                 for red, green, blue in pixels
             )
-            return beige_pixels / (crop_width * crop_height) >= 0.28
+            has_end_turn_button = beige_pixels / (crop_width * crop_height) >= 0.28
+            return has_end_turn_button or WakfuTurnVisualWatcher.has_bonus_selection_modal(image)
         finally:
             ctypes.windll.gdi32.SelectObject(memory_dc, old_bitmap)
             ctypes.windll.gdi32.DeleteObject(bitmap)
             ctypes.windll.gdi32.DeleteDC(memory_dc)
             ctypes.windll.user32.ReleaseDC(hwnd, window_dc)
+
+    @staticmethod
+    def has_bonus_selection_modal(image):
+        """Recognize the central six-card bonus modal shown every three turns."""
+        width, height = image.size
+        box = (int(width * 0.39), int(height * 0.25), int(width * 0.61), int(height * 0.73))
+        crop_width, crop_height = box[2] - box[0], box[3] - box[1]
+        if crop_width <= 0 or crop_height <= 0:
+            return False
+
+        # The six offered cards form a compact group of vivid yellow, green,
+        # cyan, red and purple tiles at the centre of the dimmed game view.
+        pixels = image.crop(box).getdata()
+        vivid_pixels = sum(
+            max(red, green, blue) >= 180 and max(red, green, blue) - min(red, green, blue) >= 130
+            for red, green, blue in pixels
+        )
+        return vivid_pixels / (crop_width * crop_height) >= 0.05
+
+    @staticmethod
+    def has_end_turn_button(hwnd):
+        """Compatibility alias used by existing diagnostic tests."""
+        return WakfuTurnVisualWatcher.has_active_turn_indicator(hwnd)
