@@ -7,6 +7,8 @@ import time
 from PIL import Image
 import win32gui
 
+from wakfu_debug import write_wakfu_debug
+
 
 class WakfuTurnVisualWatcher:
     """Watch WAKFU windows for controls visible only during the player's turn.
@@ -45,6 +47,11 @@ class WakfuTurnVisualWatcher:
                     if has_end_turn or has_bonus:
                         # A first actionable control starts a visual combat
                         # session; no log-based combat lifecycle is used.
+                        if not self.combat_active:
+                            write_wakfu_debug(
+                                f"COMBAT_START hwnd={hex(hwnd)} end_turn={has_end_turn} bonus={has_bonus} "
+                                f"tour_counter={has_turn_counter} brightness={brightness:.1f}"
+                            )
                         self.combat_active = True
                     had_end_turn = self.end_turn_states.get(hwnd, False)
                     had_bonus = self.bonus_states.get(hwnd, False)
@@ -64,12 +71,21 @@ class WakfuTurnVisualWatcher:
                     # from the bonus-modal paths. The dimming transition is
                     # also independent: WAKFU darkens only the active player's
                     # view while it waits for their bonus choice.
-                    if (
-                        (has_end_turn and not had_end_turn)
-                        or (has_bonus and not had_bonus)
-                        or (has_dimming and not had_dimming)
-                    ):
-                        self.on_turn_started(hwnd)
+                    trigger_reasons = []
+                    if has_end_turn and not had_end_turn:
+                        trigger_reasons.append("end_turn")
+                    if has_bonus and not had_bonus:
+                        trigger_reasons.append("bonus_skip")
+                    if has_dimming and not had_dimming:
+                        trigger_reasons.append("screen_dimming")
+                    if trigger_reasons:
+                        reason = "+".join(trigger_reasons)
+                        write_wakfu_debug(
+                            f"FOCUS_TRIGGER reason={reason} hwnd={hex(hwnd)} combat={self.combat_active} "
+                            f"end_turn={has_end_turn} bonus={has_bonus} tour_counter={has_turn_counter} "
+                            f"brightness={brightness:.1f} previous={previous_brightness}"
+                        )
+                        self.on_turn_started(hwnd, reason)
                 self.end_turn_states = {
                     hwnd: state for hwnd, state in self.end_turn_states.items() if hwnd in live_handles
                 }
@@ -88,6 +104,7 @@ class WakfuTurnVisualWatcher:
                 if self.combat_active and not turn_counter_visible:
                     self.combat_active = False
                     self.dimming_states.clear()
+                    write_wakfu_debug("COMBAT_END reason=turn_counter_absent")
             except Exception:
                 # A closed/recreated Java window must not stop the watcher.
                 pass

@@ -232,7 +232,7 @@ class DofusLogic:
             except: pass
 
     def focus_window(self, hwnd):
-        if not hwnd: return
+        if not hwnd: return False
         try:
             if win32gui.IsIconic(hwnd): win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
             tid, pid = win32process.GetWindowThreadProcessId(hwnd)
@@ -240,7 +240,9 @@ class DofusLogic:
             ctypes.windll.user32.keybd_event(0x12, 0, 0, 0)
             ctypes.windll.user32.keybd_event(0x12, 0, 2, 0)
             win32gui.SetForegroundWindow(hwnd)
-        except: pass
+            return True
+        except:
+            return False
 
     def sort_taskbar(self):
         active_accs = self.get_cycle_list()

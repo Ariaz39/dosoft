@@ -39,6 +39,7 @@ from i18n_manager import I18nManager
 from keyboard_layout_manager import KeyboardLayoutManager
 from wakfu_log_watcher import WakfuLogWatcher
 from wakfu_turn_visual_watcher import WakfuTurnVisualWatcher
+from wakfu_debug import write_wakfu_debug
 
 
 def try_load_windows_layout(layout_name):
@@ -433,23 +434,30 @@ class OrganizerApp:
             self.config.save()
             print(f"[WAKFU] Fighter ID {fighter_id} associé à {pseudo}.")
 
-    def on_wakfu_turn_window_detected(self, hwnd):
+    def on_wakfu_turn_window_detected(self, hwnd, reason):
         """Focus the WAKFU window that visibly received its turn."""
         if self.config.data.get("game_version") != "Wakfu":
+            write_wakfu_debug(f"FOCUS_IGNORED reason={reason} cause=game_version")
             return
         if not self.config.data.get("auto_focus_wakfu", False):
+            write_wakfu_debug(f"FOCUS_IGNORED reason={reason} cause=autofocus_disabled")
             return
 
         cycle_list = self.logic.get_cycle_list()
         for index, account in enumerate(cycle_list):
             if account["hwnd"] == hwnd:
                 def focus_account(target=account, target_index=index):
-                    self.logic.focus_window(target["hwnd"])
+                    focused = self.logic.focus_window(target["hwnd"])
                     # The manual next/previous shortcuts continue directly
                     # after/before the account that has just been focused.
                     self.current_idx = target_index
+                    write_wakfu_debug(
+                        f"FOCUS_APPLIED reason={reason} account={target['name']} hwnd={hex(target['hwnd'])} "
+                        f"index={target_index} result={focused}"
+                    )
                 self.gui.root.after(0, focus_account)
                 return
+        write_wakfu_debug(f"FOCUS_IGNORED reason={reason} cause=window_not_in_cycle hwnd={hex(hwnd)}")
     
     def focus_leader(self):
         if self.logic.leader_hwnd: 
