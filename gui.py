@@ -306,6 +306,29 @@ class OrganizerGUI:
 
         self.scroll_frame = ctk.CTkScrollableFrame(self.root)
         self.scroll_frame.pack(fill="both", expand=True, padx=15, pady=(5, 10))
+
+        self.frame_fast_command = ctk.CTkFrame(self.root, fg_color="#263641", corner_radius=8)
+        self.lbl_fast_command = ctk.CTkLabel(
+            self.frame_fast_command, text="⚡ Fast Commande", font=ctk.CTkFont(weight="bold")
+        )
+        self.lbl_fast_command.pack(side="left", padx=(10, 6), pady=7)
+        self.lbl_fast_command_value = ctk.CTkLabel(
+            self.frame_fast_command, text="Définis un meneur pour générer la commande.",
+            text_color="#d8e2e8"
+        )
+        self.lbl_fast_command_value.pack(side="left", padx=4, pady=7)
+        self.btn_copy_fast_command = ctk.CTkButton(
+            self.frame_fast_command, text="Copier", width=65, height=26,
+            fg_color="#2f6b57", hover_color="#3c8069", state="disabled",
+            command=self.copy_fast_command,
+        )
+        self.btn_copy_fast_command.pack(side="right", padx=8, pady=7)
+        self.lbl_fast_command_hint = ctk.CTkLabel(
+            self.frame_fast_command,
+            text="ⓘ À copier dans un raccourci chat, dans les paramètres de WAKFU.",
+            text_color="#aebbc4", font=ctk.CTkFont(size=11),
+        )
+        self.lbl_fast_command_hint.pack(side="bottom", fill="x", padx=10, pady=(0, 6))
         
         # --- CORRECTION PIED DE PAGE ---
         self.frame_footer = ctk.CTkFrame(self.root, fg_color="transparent")
@@ -453,6 +476,7 @@ class OrganizerGUI:
         btn.configure(text="T1" if new_team == "Team 1" else "T2", fg_color=team_color)
 
     def refresh_list(self, accounts):
+        self.update_fast_command()
         for widget in self.scroll_frame.winfo_children(): widget.destroy()
         leader_name = self.app.config.data.get("leader_name", "")
         
@@ -733,6 +757,38 @@ class OrganizerGUI:
     def set_leader(self, name):
         self.app.logic.set_leader(name)
         self.original_app_refresh()
+
+    def update_fast_command(self):
+        """Show the one-click WAKFU follow command only in the WAKFU module."""
+        is_wakfu = self.app.config.data.get("game_version") == "Wakfu"
+        if not is_wakfu:
+            self.frame_fast_command.pack_forget()
+            return
+
+        if not self.frame_fast_command.winfo_manager():
+            self.frame_fast_command.pack(
+                fill="x", padx=15, pady=(0, 5), before=self.frame_footer
+            )
+
+        leader_name = self.app.config.data.get("leader_name", "").strip()
+        if leader_name:
+            self.fast_command = f"/follow {leader_name}"
+            self.lbl_fast_command_value.configure(text=self.fast_command, font=ctk.CTkFont(weight="bold"))
+            self.btn_copy_fast_command.configure(state="normal")
+        else:
+            self.fast_command = ""
+            self.lbl_fast_command_value.configure(
+                text="Définis un meneur pour générer la commande.", font=ctk.CTkFont()
+            )
+            self.btn_copy_fast_command.configure(state="disabled")
+
+    def copy_fast_command(self):
+        if not getattr(self, "fast_command", ""):
+            return
+        self.root.clipboard_clear()
+        self.root.clipboard_append(self.fast_command)
+        self.root.update()
+        self.show_temporary_message("✅ Commande /follow copiée.", "#2ecc71")
 
     def reset_all(self):
         reponse = messagebox.askyesno(self.app.i18n.t("dialog_confirm_title", "Confirmation"),self.app.i18n.t("dialog_reset_text", "Êtes-vous sûr de vouloir tout réinitialiser ?\n\nToutes vos touches seront perdues."))  
