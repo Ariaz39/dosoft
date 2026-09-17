@@ -26,6 +26,7 @@ class Config:
             "ignore_organizer_warning": False,
             "auto_focus_retro": False,
             "auto_focus_wakfu": False,
+            "wakfu_theme": "1",
             "wakfu_autofocus_hotkey": "",
             "wakfu_autofocus_overlay_position": [0.59, 0.56],
             "wakfu_autofocus_overlay_screen_position": [],

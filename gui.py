@@ -29,12 +29,28 @@ GAME_THEMES = {
         "accent": "#9a6a3f", "accent_hover": "#b27c4a", "border": "#e0bd78",
         "title": "#f2ddaf", "muted": "#d0bea0",
     },
-    "Wakfu": {
+}
+
+# Chaque direction artistique WAKFU possède ses couleurs et ses ressources.
+# Le thème 1 est le visuel actuel ; les prochains thèmes pourront s'ajouter ici
+# sans modifier les comportements du sélecteur.
+WAKFU_THEMES = {
+    "1": {
         "background": "#101519", "panel": "#171d21", "panel_alt": "#263137",
         "accent": "#176c7c", "accent_hover": "#23889a", "border": "#c2a468",
-        "title": "#f2e5c2", "muted": "#b9c6c2",
+        "title": "#f2e5c2", "muted": "#b9c6c2", "banner": "#152228",
+        "toast": "#172126", "clear": "#9a3935", "clear_hover": "#b94c45",
+        "background_texture": "wakfu_panel_texture",
+        "focus_icon": "focus", "volume_icon": "volume",
+        "follow_icon": "follow", "group_icon": "groupe",
     },
 }
+
+
+def selected_game_theme(config):
+    if config.get("game_version", "Unity") == "Wakfu":
+        return WAKFU_THEMES.get(str(config.get("wakfu_theme", "1")), WAKFU_THEMES["1"])
+    return GAME_THEMES.get(config.get("game_version"), GAME_THEMES["Unity"])
 
 class SettingsWindow(ctk.CTkToplevel):
     def __init__(self, parent_gui):
@@ -49,6 +65,12 @@ class SettingsWindow(ctk.CTkToplevel):
 
         self.scroll_container = ctk.CTkScrollableFrame(self, fg_color="transparent")
         self.scroll_container.pack(fill="both", expand=True, padx=5, pady=5)
+        theme = parent_gui.game_theme
+        is_wakfu = self.app.config.data.get("game_version") == "Wakfu"
+        input_color = theme["accent"] if is_wakfu else "#3a7ebf"
+        input_hover = theme["accent_hover"] if is_wakfu else "#1f538d"
+        clear_color = theme.get("clear", "#c0392b") if is_wakfu else "#c0392b"
+        clear_hover = theme.get("clear_hover", "#e74c3c") if is_wakfu else "#e74c3c"
 
         title_font = ctk.CTkFont(size=16, weight="bold")
 
@@ -68,12 +90,12 @@ class SettingsWindow(ctk.CTkToplevel):
         self.lbl_hk.pack(side="left", padx=5)
         
         current_val = self.app.config.data.get("radial_menu_hotkey", "alt+left_click")
-        btn_hk = ctk.CTkButton(frame_hk, text=current_val if current_val else self.app.i18n.t("none", "Aucun"), width=120, command=lambda: self.parent.catch_key("radial_menu_hotkey", btn_hk, allow_mouse=True))
+        btn_hk = ctk.CTkButton(frame_hk, text=current_val if current_val else self.app.i18n.t("none", "Aucun"), width=120, fg_color=input_color, hover_color=input_hover, command=lambda: self.parent.catch_key("radial_menu_hotkey", btn_hk, allow_mouse=True))
         btn_hk.pack(side="left", padx=5)
         
         self.parent.hotkey_btns["radial_menu_hotkey"] = btn_hk
 
-        btn_x = ctk.CTkButton(frame_hk, text="✖", width=25, fg_color="#c0392b", hover_color="#e74c3c", command=lambda: self.parent.clear_key("radial_menu_hotkey", btn_hk))
+        btn_x = ctk.CTkButton(frame_hk, text="✖", width=25, fg_color=clear_color, hover_color=clear_hover, command=lambda: self.parent.clear_key("radial_menu_hotkey", btn_hk))
         btn_x.pack(side="left", padx=5)
 
         self.frame_wakfu_autofocus = ctk.CTkFrame(self.scroll_container)
@@ -86,7 +108,7 @@ class SettingsWindow(ctk.CTkToplevel):
         self.btn_wakfu_autofocus_hotkey = ctk.CTkButton(
             self.frame_wakfu_autofocus,
             text=current_wakfu_hotkey or self.app.i18n.t("none", "Aucun"),
-            width=100,
+            width=100, fg_color=input_color, hover_color=input_hover,
             command=lambda: self.parent.catch_key(
                 "wakfu_autofocus_hotkey", self.btn_wakfu_autofocus_hotkey
             ),
@@ -95,12 +117,23 @@ class SettingsWindow(ctk.CTkToplevel):
         self.parent.hotkey_btns["wakfu_autofocus_hotkey"] = self.btn_wakfu_autofocus_hotkey
         self.btn_wakfu_autofocus_clear = ctk.CTkButton(
             self.frame_wakfu_autofocus, text="✖", width=25,
-            fg_color="#c0392b", hover_color="#e74c3c",
+            fg_color=clear_color, hover_color=clear_hover,
             command=lambda: self.parent.clear_key(
                 "wakfu_autofocus_hotkey", self.btn_wakfu_autofocus_hotkey
             ),
         )
         self.btn_wakfu_autofocus_clear.pack(side="right", padx=3, pady=8)
+
+        self.frame_wakfu_theme = ctk.CTkFrame(self.scroll_container)
+        self.frame_wakfu_theme.pack(fill="x", padx=10, pady=5)
+        self.lbl_wakfu_theme = ctk.CTkLabel(self.frame_wakfu_theme, text="Thème WAKFU")
+        self.lbl_wakfu_theme.pack(side="left", padx=8, pady=8)
+        self.var_wakfu_theme = ctk.StringVar(value=str(self.app.config.data.get("wakfu_theme", "1")))
+        self.menu_wakfu_theme = ctk.CTkOptionMenu(
+            self.frame_wakfu_theme, values=["1"], variable=self.var_wakfu_theme,
+            command=self.on_wakfu_theme_change,
+        )
+        self.menu_wakfu_theme.pack(side="right", padx=8, pady=8)
 
         frame_language = ctk.CTkFrame(self.scroll_container)
         frame_language.pack(fill="x", padx=10, pady=5)
@@ -144,16 +177,21 @@ class SettingsWindow(ctk.CTkToplevel):
         self.app.config.data["radial_menu_active"] = self.var_radial.get()
         self.app.config.data["language"] = self.var_language.get()
         self.app.config.data["keyboard_layout"] = self.var_keyboard_layout.get()
+        self.app.config.data["wakfu_theme"] = self.var_wakfu_theme.get()
         self.app.i18n.set_locale(self.var_language.get())
         self.app.keymaps.set_layout(self.var_keyboard_layout.get())
         self.app.setup_hotkeys()
         self.app.config.save()
+        self.parent.apply_game_theme()
         self.parent.apply_translations()
         self.apply_translations()
         self.app.config.data["notif_api_mode"] = self.var_notif_api.get()
 
         if previous_language != self.var_language.get():
             self.title(self.app.i18n.t("settings_title", "⚙️ Paramètres"))
+
+    def on_wakfu_theme_change(self, _choice):
+        self.save_settings()
             
     def on_notif_api_change(self, choice):
         self.app.config.data["notif_api_mode"] = choice
@@ -176,6 +214,7 @@ class SettingsWindow(ctk.CTkToplevel):
         self.sw_radial.configure(text=self.app.i18n.t("settings_radial_enable", "Activer la roue"))
         self.lbl_hk.configure(text=self.app.i18n.t("settings_hotkey", "Raccourci :"))
         self.lbl_wakfu_autofocus.configure(text="Auto-Focus WAKFU")
+        self.lbl_wakfu_theme.configure(text="Thème WAKFU")
         self.lbl_language.configure(text=self.app.i18n.t("settings_language", "Langue"))
         self.lbl_keyboard.configure(text=self.app.i18n.t("settings_keyboard_layout", "Disposition clavier"))
         self.btn_close.configure(text=self.app.i18n.t("settings_close", "Fermer"))
@@ -214,7 +253,7 @@ class OrganizerGUI:
         self.is_listening = False
         self.is_visible = True 
         cfg = self.app.config.data 
-        self.game_theme = GAME_THEMES.get(cfg.get("game_version"), GAME_THEMES["Unity"])
+        self.game_theme = selected_game_theme(cfg)
         
         self.var_tooltips = ctk.BooleanVar(value=cfg.get("show_tooltips", True))
         self.tooltip = tk.Toplevel(self.root)
@@ -232,7 +271,9 @@ class OrganizerGUI:
         # Fond discret pour WAKFU : il reste visible dans les respirations entre
         # les cartes et évite l'effet de panneaux posés sur un aplat vide.
         self.wakfu_background_texture = None
-        texture_path = resource_path("resources", "skin", "wakfu_panel_texture.png")
+        texture_path = resource_path(
+            "resources", "skin", f"{self.game_theme.get('background_texture', 'wakfu_panel_texture')}.png"
+        )
         if os.path.exists(texture_path):
             texture = Image.open(texture_path)
             self.wakfu_background_texture = ctk.CTkImage(
@@ -270,7 +311,9 @@ class OrganizerGUI:
             self.root, height=58, corner_radius=9, fg_color="#172126",
         )
         self.frame_module_banner.pack_propagate(False)
-        texture_path = resource_path("resources", "skin", "wakfu_panel_texture.png")
+        texture_path = resource_path(
+            "resources", "skin", f"{self.game_theme.get('background_texture', 'wakfu_panel_texture')}.png"
+        )
         self.wakfu_banner_texture = None
         if os.path.exists(texture_path):
             texture = Image.open(texture_path)
@@ -328,7 +371,7 @@ class OrganizerGUI:
         self.update_version_selector(cfg.get("game_version", "Unity"))
 
         self.var_autofocus = ctk.BooleanVar(value=cfg.get(self._autofocus_config_key(), False))
-        self.autofocus_image = self.load_selector_image("focus")
+        self.autofocus_image = self.load_selector_image(self.game_theme.get("focus_icon", "focus"))
         self.chk_autofocus = ctk.CTkButton(
             self.frame_mode, text="", image=self.autofocus_image,
             width=36, height=34, corner_radius=7, command=self.toggle_autofocus,
@@ -356,7 +399,8 @@ class OrganizerGUI:
         self.frame_actions = ctk.CTkFrame(self.root)
         self.frame_actions.pack(fill="x", padx=15, pady=5)
 
-        self.lbl_volume = ctk.CTkLabel(self.frame_actions, text=self.app.i18n.t("label_volume", "Volume :"))
+        self.volume_image = self.load_selector_image(self.game_theme.get("volume_icon", "volume"), size=(19, 19))
+        self.lbl_volume = ctk.CTkLabel(self.frame_actions, text="", image=self.volume_image, width=22)
         self.lbl_volume.pack(side="left", padx=10)
         self.slider_volume = ctk.CTkSlider(self.frame_actions, from_=0, to=100, command=self.on_volume_change, width=150)
         self.slider_volume.set(cfg.get("volume_level", 50))
@@ -388,10 +432,11 @@ class OrganizerGUI:
         self.frame_fast_command.pack_propagate(False)
         self.frame_fast_command_row = ctk.CTkFrame(self.frame_fast_command, fg_color="transparent")
         self.frame_fast_command_row.pack(fill="x", padx=2, pady=(2, 0))
-        self.lbl_fast_command = ctk.CTkLabel(
-            self.frame_fast_command_row, text="⚡ Fast Commande", font=ctk.CTkFont(weight="bold")
-        )
-        self.lbl_fast_command.pack(side="left", padx=(10, 6), pady=7)
+        self.follow_image = self.load_selector_image(self.game_theme.get("follow_icon", "follow"), size=(17, 17))
+        self.lbl_fast_follow_icon = ctk.CTkLabel(self.frame_fast_command_row, text="", image=self.follow_image, width=20)
+        self.lbl_fast_follow_icon.pack(side="left", padx=(10, 2), pady=7)
+        self.lbl_fast_command = ctk.CTkLabel(self.frame_fast_command_row, text="Fast Commande", font=ctk.CTkFont(weight="bold"))
+        self.lbl_fast_command.pack(side="left", padx=(2, 6), pady=7)
         self.lbl_fast_command_value = ctk.CTkLabel(
             self.frame_fast_command_row, text="Définis un meneur pour générer la commande.",
             text_color="#d8e2e8"
@@ -407,10 +452,11 @@ class OrganizerGUI:
         self.fast_invite_separator.pack(fill="x", padx=10, pady=(2, 2))
         self.frame_fast_invite_row = ctk.CTkFrame(self.frame_fast_command, fg_color="transparent")
         self.frame_fast_invite_row.pack(fill="x", padx=2, pady=(0, 0))
-        self.lbl_fast_invite = ctk.CTkLabel(
-            self.frame_fast_invite_row, text="👥 Invite groupe", font=ctk.CTkFont(weight="bold")
-        )
-        self.lbl_fast_invite.pack(side="left", padx=(10, 6), pady=7)
+        self.group_image = self.load_selector_image(self.game_theme.get("group_icon", "groupe"), size=(17, 17))
+        self.lbl_fast_group_icon = ctk.CTkLabel(self.frame_fast_invite_row, text="", image=self.group_image, width=20)
+        self.lbl_fast_group_icon.pack(side="left", padx=(10, 2), pady=7)
+        self.lbl_fast_invite = ctk.CTkLabel(self.frame_fast_invite_row, text="Invite groupe", font=ctk.CTkFont(weight="bold"))
+        self.lbl_fast_invite.pack(side="left", padx=(2, 6), pady=7)
         self.lbl_fast_invite_value = ctk.CTkLabel(
             self.frame_fast_invite_row, text="Définis un meneur pour générer les invitations.",
             text_color="#d8e2e8", justify="left", anchor="w", wraplength=350,
@@ -443,7 +489,7 @@ class OrganizerGUI:
         # vient donc casser la finition entre Fast Commande et le pied de page.
         self.lbl_feedback = ctk.CTkLabel(
             self.root, text="", font=ctk.CTkFont(size=13, weight="bold"),
-            corner_radius=7, padx=10, pady=5, fg_color="#172126",
+            corner_radius=7, padx=10, pady=5, fg_color=self.game_theme.get("toast", "#172126"),
         )
         
         self.skin_cache = {} 
@@ -452,11 +498,12 @@ class OrganizerGUI:
     def apply_game_theme(self):
         """Apply the visual module associated with the selected game engine."""
         version = self.app.config.data.get("game_version", "Unity")
-        theme = GAME_THEMES.get(version, GAME_THEMES["Unity"])
+        theme = selected_game_theme(self.app.config.data)
         is_wakfu = version == "Wakfu"
         self.game_theme = theme
 
         self.root.configure(fg_color=theme["background"])
+        self.lbl_feedback.configure(fg_color=theme.get("toast", theme["panel"]))
         for frame in (
             self.frame_mode, self.frame_keys, self.frame_actions,
             self.pill_frame, self.scroll_frame,
@@ -480,8 +527,8 @@ class OrganizerGUI:
         self.btn_manage_binds.configure(fg_color=theme["panel_alt"], hover_color=theme["accent"])
         for button in self.hotkey_btns.values():
             button.configure(fg_color=theme["accent"], hover_color=theme["accent_hover"])
-        clear_color = "#9a3935" if is_wakfu else "#c0392b"
-        clear_hover = "#b94c45" if is_wakfu else "#e74c3c"
+        clear_color = theme.get("clear", "#c0392b") if is_wakfu else "#c0392b"
+        clear_hover = theme.get("clear_hover", "#e74c3c") if is_wakfu else "#e74c3c"
         for button in self.hotkey_clear_buttons:
             button.configure(fg_color=clear_color, hover_color=clear_hover)
         self.combo_mode.configure(
@@ -504,7 +551,7 @@ class OrganizerGUI:
             label.configure(text_color=theme["title"])
         if is_wakfu:
             self.frame_module_banner.configure(
-                fg_color="#152228", border_width=1, border_color=theme["border"]
+                fg_color=theme.get("banner", theme["panel"]), border_width=1, border_color=theme["border"]
             )
             self.lbl_module_title.configure(text_color=theme["title"])
             self.lbl_module_subtitle.configure(text_color=theme["muted"])
@@ -529,7 +576,7 @@ class OrganizerGUI:
         self.lbl_controls.configure(text=self.app.i18n.t("label_controls", "Contrôler :"))
         self.lbl_versions.configure(text=self.app.i18n.t("label_versions", "Versions :"))
         self.lbl_keyboard_shortcuts.configure(text=self.app.i18n.t("label_keyboard_shortcuts", "Raccourcis Clavier"))
-        self.lbl_volume.configure(text=self.app.i18n.t("label_volume", "Volume :"))
+        self.lbl_volume.configure(text="")
         self.btn_close_all.configure(text=self.app.i18n.t("btn_close_team", "Fermer Team"))
         self.btn_reset.configure(text=self.app.i18n.t("btn_reset_settings", "Reset Settings"))
         self.lbl_accounts.configure(text=self.app.i18n.t("label_active_accounts", "Comptes actifs"))
@@ -766,10 +813,11 @@ class OrganizerGUI:
         self.hotkey_btns[config_key] = btn 
         
         is_wakfu = self.app.config.data.get("game_version") == "Wakfu"
+        theme = getattr(self, "game_theme", GAME_THEMES["Unity"])
         btn_x = ctk.CTkButton(
             parent, text="✖", width=25,
-            fg_color="#9a3935" if is_wakfu else "#c0392b",
-            hover_color="#b94c45" if is_wakfu else "#e74c3c",
+            fg_color=theme.get("clear", "#c0392b") if is_wakfu else "#c0392b",
+            hover_color=theme.get("clear_hover", "#e74c3c") if is_wakfu else "#e74c3c",
             command=lambda: self.clear_key(config_key, btn),
         )
         btn_x.grid(row=row, column=col_offset+2, padx=(0, 10))
@@ -923,12 +971,12 @@ class OrganizerGUI:
         self.app.logic.set_mode(choice)
         self.app.current_idx = 0
 
-    def load_selector_image(self, icon_name):
+    def load_selector_image(self, icon_name, size=(28, 28)):
         path = resource_path("resources", "skin", f"{icon_name}.png")
         if not os.path.exists(path):
             return None
         image = Image.open(path)
-        return ctk.CTkImage(light_image=image, dark_image=image, size=(28, 28))
+        return ctk.CTkImage(light_image=image, dark_image=image, size=size)
 
     def update_version_selector(self, selected_version):
         theme = getattr(self, "game_theme", GAME_THEMES["Unity"])
