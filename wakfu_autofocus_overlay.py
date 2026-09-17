@@ -1,15 +1,18 @@
-"""One persistent, owner-bound WAKFU control for explicit auto-focus arming."""
+"""A fixed, global WAKFU-only control for explicit auto-focus arming."""
 
 from __future__ import annotations
 
+import os
 import tkinter as tk
 
-import win32con
+from PIL import Image, ImageTk
 import win32gui
+
+from resource_paths import resource_path
 
 
 class WakfuAutofocusOverlay:
-    """Keep a single control attached to whichever WAKFU client is active."""
+    """Keep one fixed overlay visible only while a WAKFU client has focus."""
 
     DEFAULT_POSITION = (0.59, 0.56)
     SIZE = (64, 78)
@@ -20,15 +23,15 @@ class WakfuAutofocusOverlay:
         self.get_windows = get_windows
         self.on_toggle = on_toggle
         self.armed = False
-        self.anchor_hwnd = None
-        self.anchor_rect = None
         self.drag_offset = None
+        self.position_initialized = False
 
         self.window = tk.Toplevel(parent_root)
         self.window.withdraw()
         self.window.overrideredirect(True)
-        # Owned, not globally topmost: it remains over WAKFU, below other apps.
-        self.window.attributes("-topmost", False)
+        # One topmost popup. It is withdrawn whenever WAKFU is not foreground,
+        # so it never covers a browser, DOSOFT, or another application.
+        self.window.attributes("-topmost", True)
         self.window.configure(bg="#1c252d")
         self.window.resizable(False, False)
 
@@ -39,11 +42,12 @@ class WakfuAutofocusOverlay:
         frame.pack(fill="both", expand=True)
         handle = tk.Label(frame, text="⋮⋮", bg="#1c252d", fg="#d8b45a", font=("Segoe UI", 8))
         handle.pack(fill="x")
+
+        self.focus_image = self._load_focus_image()
         self.button = tk.Button(
-            frame, text="AUTO\nFOCUS", command=self.on_toggle,
-            bg="#263641", activebackground="#334b59", fg="#f4e3a1",
-            activeforeground="#ffffff", font=("Segoe UI", 8, "bold"),
-            bd=0, relief="flat", cursor="hand2", padx=2, pady=3,
+            frame, text="" if self.focus_image else "FOCUS", image=self.focus_image,
+            command=self.on_toggle, bg="#263641", activebackground="#334b59",
+            bd=0, relief="flat", cursor="hand2", padx=2, pady=2,
         )
         self.button.pack(fill="both", expand=True, padx=2, pady=(0, 2))
         for widget in (frame, handle):
@@ -51,7 +55,17 @@ class WakfuAutofocusOverlay:
             widget.bind("<B1-Motion>", self._drag)
             widget.bind("<ButtonRelease-1>", self._save_position)
 
-        self.parent_root.after(350, self._refresh)
+        self.parent_root.after(250, self._refresh)
+
+    def _load_focus_image(self):
+        path = resource_path("resources", "skin", "focus.png")
+        if not os.path.exists(path):
+            return None
+        try:
+            image = Image.open(path).resize((48, 48), Image.Resampling.LANCZOS)
+            return ImageTk.PhotoImage(image)
+        except Exception:
+            return None
 
     def _is_enabled(self):
         return (
@@ -63,49 +77,30 @@ class WakfuAutofocusOverlay:
         try:
             accounts = self.get_windows() if self._is_enabled() else []
             handles = {account["hwnd"] for account in accounts if win32gui.IsWindow(account["hwnd"])}
-            if not handles:
-                self.window.withdraw()
-                self.anchor_hwnd = None
-                self.anchor_rect = None
-                return
-
             foreground = win32gui.GetForegroundWindow()
-            if foreground in handles and foreground != self.anchor_hwnd:
-                self._attach_to(foreground)
-            elif self.anchor_hwnd not in handles:
-                self._attach_to(foreground if foreground in handles else next(iter(handles)))
-
-            if self.anchor_hwnd and not self.drag_offset:
-                self._place_if_window_changed()
-            self.window.deiconify()
+            overlay_is_foreground = foreground == self.window.winfo_id()
+            if handles and (foreground in handles or overlay_is_foreground):
+                if not self.position_initialized:
+                    self._restore_position(next(iter(handles)))
+                self.window.deiconify()
+                self.window.lift()
+            else:
+                self.window.withdraw()
         finally:
-            self.parent_root.after(350, self._refresh)
+            self.parent_root.after(250, self._refresh)
 
-    def _attach_to(self, hwnd):
-        self.anchor_hwnd = hwnd
-        self.anchor_rect = None
-        try:
-            # Re-own the same physical popup; no duplicate button is created.
-            win32gui.SetWindowLong(self.window.winfo_id(), win32con.GWL_HWNDPARENT, hwnd)
-        except Exception:
-            pass
-        self._place_if_window_changed()
-
-    def _place_if_window_changed(self):
-        try:
-            rect = win32gui.GetWindowRect(self.anchor_hwnd)
-            if self.anchor_rect == rect:
-                return
-            left, top, right, bottom = rect
-            width, height = right - left, bottom - top
-            position = self.config.data.get("wakfu_autofocus_overlay_position", list(self.DEFAULT_POSITION))
-            x_ratio, y_ratio = position if isinstance(position, list) and len(position) == 2 else self.DEFAULT_POSITION
-            x = left + int(width * max(0.0, min(0.94, x_ratio)))
-            y = top + int(height * max(0.0, min(0.90, y_ratio)))
-            self.window.geometry(f"{self.SIZE[0]}x{self.SIZE[1]}+{x}+{y}")
-            self.anchor_rect = rect
-        except Exception:
-            pass
+    def _restore_position(self, fallback_hwnd):
+        saved_position = self.config.data.get("wakfu_autofocus_overlay_screen_position")
+        if isinstance(saved_position, list) and len(saved_position) == 2:
+            x, y = saved_position
+        else:
+            left, top, right, bottom = win32gui.GetWindowRect(fallback_hwnd)
+            ratio = self.config.data.get("wakfu_autofocus_overlay_position", list(self.DEFAULT_POSITION))
+            x_ratio, y_ratio = ratio if isinstance(ratio, list) and len(ratio) == 2 else self.DEFAULT_POSITION
+            x = left + int((right - left) * x_ratio)
+            y = top + int((bottom - top) * y_ratio)
+        self.window.geometry(f"{self.SIZE[0]}x{self.SIZE[1]}+{int(x)}+{int(y)}")
+        self.position_initialized = True
 
     def _start_drag(self, event):
         self.drag_offset = (event.x_root - self.window.winfo_x(), event.y_root - self.window.winfo_y())
@@ -116,30 +111,20 @@ class WakfuAutofocusOverlay:
             self.window.geometry(f"+{event.x_root - x_offset}+{event.y_root - y_offset}")
 
     def _save_position(self, _event):
-        if not self.drag_offset or not self.anchor_hwnd:
+        if not self.drag_offset:
             return
         self.drag_offset = None
-        try:
-            left, top, right, bottom = win32gui.GetWindowRect(self.anchor_hwnd)
-            width, height = right - left, bottom - top
-            x_ratio = (self.window.winfo_x() - left) / max(width, 1)
-            y_ratio = (self.window.winfo_y() - top) / max(height, 1)
-            self.config.data["wakfu_autofocus_overlay_position"] = [
-                round(max(0.0, min(0.94, x_ratio)), 4),
-                round(max(0.0, min(0.90, y_ratio)), 4),
-            ]
-            self.config.save()
-            # Stay exactly at the chosen location until the WAKFU window moves.
-            self.anchor_rect = (left, top, right, bottom)
-        except Exception:
-            pass
+        self.config.data["wakfu_autofocus_overlay_screen_position"] = [
+            self.window.winfo_x(), self.window.winfo_y()
+        ]
+        self.config.save()
 
     def set_armed(self, armed):
         self.armed = armed
         if armed:
-            self.button.configure(text="COMBAT\nACTIF", bg="#2f6b57", activebackground="#3c8069")
+            self.button.configure(bg="#2f6b57", activebackground="#3c8069")
         else:
-            self.button.configure(text="AUTO\nFOCUS", bg="#263641", activebackground="#334b59")
+            self.button.configure(bg="#263641", activebackground="#334b59")
 
     def sync(self):
         if not self._is_enabled():
