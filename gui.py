@@ -308,17 +308,19 @@ class OrganizerGUI:
         self.scroll_frame.pack(fill="both", expand=True, padx=15, pady=(5, 10))
 
         self.frame_fast_command = ctk.CTkFrame(self.root, fg_color="#263641", corner_radius=8)
+        self.frame_fast_command_row = ctk.CTkFrame(self.frame_fast_command, fg_color="transparent")
+        self.frame_fast_command_row.pack(fill="x", padx=2, pady=(2, 0))
         self.lbl_fast_command = ctk.CTkLabel(
-            self.frame_fast_command, text="⚡ Fast Commande", font=ctk.CTkFont(weight="bold")
+            self.frame_fast_command_row, text="⚡ Fast Commande", font=ctk.CTkFont(weight="bold")
         )
         self.lbl_fast_command.pack(side="left", padx=(10, 6), pady=7)
         self.lbl_fast_command_value = ctk.CTkLabel(
-            self.frame_fast_command, text="Définis un meneur pour générer la commande.",
+            self.frame_fast_command_row, text="Définis un meneur pour générer la commande.",
             text_color="#d8e2e8"
         )
         self.lbl_fast_command_value.pack(side="left", padx=4, pady=7)
         self.btn_copy_fast_command = ctk.CTkButton(
-            self.frame_fast_command, text="Copier", width=65, height=26,
+            self.frame_fast_command_row, text="Copier", width=65, height=26,
             fg_color="#2f6b57", hover_color="#3c8069", state="disabled",
             command=self.copy_fast_command,
         )
@@ -326,9 +328,10 @@ class OrganizerGUI:
         self.lbl_fast_command_hint = ctk.CTkLabel(
             self.frame_fast_command,
             text="ⓘ À copier dans un raccourci chat, dans les paramètres de WAKFU.",
-            text_color="#aebbc4", font=ctk.CTkFont(size=11),
+            text_color="#aebbc4", font=ctk.CTkFont(size=11), justify="left", anchor="w",
+            wraplength=620,
         )
-        self.lbl_fast_command_hint.pack(side="bottom", fill="x", padx=10, pady=(0, 6))
+        self.lbl_fast_command_hint.pack(fill="x", padx=10, pady=(2, 7))
         
         # --- CORRECTION PIED DE PAGE ---
         self.frame_footer = ctk.CTkFrame(self.root, fg_color="transparent")
