@@ -18,6 +18,24 @@ from resource_paths import resource_path, skin_path
 ctk.set_appearance_mode("Dark")  
 ctk.set_default_color_theme("blue")  
 
+GAME_THEMES = {
+    "Unity": {
+        "background": "#1f2933", "panel": "#283845", "panel_alt": "#34495e",
+        "accent": "#2f80c3", "accent_hover": "#3e95d5", "border": "#78b9e8",
+        "title": "#d8efff", "muted": "#b7c9d6",
+    },
+    "Rétro": {
+        "background": "#2d2822", "panel": "#40382d", "panel_alt": "#554836",
+        "accent": "#9a6a3f", "accent_hover": "#b27c4a", "border": "#e0bd78",
+        "title": "#f2ddaf", "muted": "#d0bea0",
+    },
+    "Wakfu": {
+        "background": "#102a36", "panel": "#163b4a", "panel_alt": "#214d5c",
+        "accent": "#276f80", "accent_hover": "#39899b", "border": "#dfbd67",
+        "title": "#f4dfa1", "muted": "#c7d9dc",
+    },
+}
+
 class SettingsWindow(ctk.CTkToplevel):
     def __init__(self, parent_gui):
         super().__init__(parent_gui.root)
@@ -191,6 +209,7 @@ class OrganizerGUI:
         self.is_listening = False
         self.is_visible = True 
         cfg = self.app.config.data 
+        self.game_theme = GAME_THEMES.get(cfg.get("game_version"), GAME_THEMES["Unity"])
         
         self.var_tooltips = ctk.BooleanVar(value=cfg.get("show_tooltips", True))
         self.tooltip = tk.Toplevel(self.root)
@@ -292,17 +311,17 @@ class OrganizerGUI:
         self.btn_reset.pack(side="right", padx=10)
 
         # --- NOUVEAU DESIGN : Barre Comptes Actifs avec Binds Avancés ---
-        pill_frame = ctk.CTkFrame(self.root, fg_color="#3b4252", corner_radius=8)
-        pill_frame.pack(fill="x", padx=15, pady=(10, 0), ipadx=5, ipady=2)
+        self.pill_frame = ctk.CTkFrame(self.root, fg_color="#3b4252", corner_radius=8)
+        self.pill_frame.pack(fill="x", padx=15, pady=(10, 0), ipadx=5, ipady=2)
 
-        self.lbl_accounts = ctk.CTkLabel(pill_frame, text=self.app.i18n.t("label_active_accounts", "Comptes actifs"), font=ctk.CTkFont(size=13, weight="normal"), text_color="#ecf0f1")
+        self.lbl_accounts = ctk.CTkLabel(self.pill_frame, text=self.app.i18n.t("label_active_accounts", "Comptes actifs"), font=ctk.CTkFont(size=13, weight="normal"), text_color="#ecf0f1")
         self.lbl_accounts.pack(side="left", padx=10, pady=4)
 
-        btn_manage_binds = ctk.CTkButton(pill_frame, text="⚙️", width=28, height=28, 
+        self.btn_manage_binds = ctk.CTkButton(self.pill_frame, text="⚙️", width=28, height=28,
                                         fg_color="#2c3e50", hover_color="#1a252f", corner_radius=6,
                                         command=self.open_bind_manager)
-        btn_manage_binds.pack(side="right", padx=5, pady=4)
-        self.bind_i18n_tooltip(btn_manage_binds, "tooltip_manage_binds", "Gérer les raccourcis avancés par personnage")
+        self.btn_manage_binds.pack(side="right", padx=5, pady=4)
+        self.bind_i18n_tooltip(self.btn_manage_binds, "tooltip_manage_binds", "Gérer les raccourcis avancés par personnage")
 
         self.scroll_frame = ctk.CTkScrollableFrame(self.root)
         self.scroll_frame.pack(fill="both", expand=True, padx=15, pady=(5, 10))
@@ -361,12 +380,43 @@ class OrganizerGUI:
         self.btn_hide = ctk.CTkButton(self.frame_footer, text=self.app.i18n.t("btn_hide_ui", "Cacher l'UI"), command=self.toggle_visibility, fg_color="transparent", border_width=1, width=70)
         self.btn_hide.pack(side="right")
 
-        frame_msg = ctk.CTkFrame(self.root, fg_color="transparent", height=20)
-        frame_msg.pack(fill="x", padx=15, pady=(0, 5))
-        self.lbl_feedback = ctk.CTkLabel(frame_msg, text="", font=ctk.CTkFont(size=13, weight="bold"))
+        self.frame_msg = ctk.CTkFrame(self.root, fg_color="transparent", height=20)
+        self.frame_msg.pack(fill="x", padx=15, pady=(0, 5))
+        self.lbl_feedback = ctk.CTkLabel(self.frame_msg, text="", font=ctk.CTkFont(size=13, weight="bold"))
         self.lbl_feedback.pack(expand=True)
         
         self.skin_cache = {} 
+        self.apply_game_theme()
+
+    def apply_game_theme(self):
+        """Apply the visual module associated with the selected game engine."""
+        version = self.app.config.data.get("game_version", "Unity")
+        theme = GAME_THEMES.get(version, GAME_THEMES["Unity"])
+        self.game_theme = theme
+
+        self.root.configure(fg_color=theme["background"])
+        for frame in (
+            self.frame_mode, self.frame_keys, self.frame_actions,
+            self.pill_frame, self.scroll_frame,
+        ):
+            frame.configure(fg_color=theme["panel"])
+        self.lbl_app_title.configure(text_color=theme["title"])
+        self.lbl_accounts.configure(text_color=theme["title"])
+        self.btn_settings.configure(fg_color=theme["panel_alt"], hover_color=theme["accent"])
+        self.btn_tuto.configure(fg_color=theme["accent"], hover_color=theme["accent_hover"])
+        self.btn_refresh.configure(fg_color=theme["accent"], hover_color=theme["accent_hover"])
+        self.btn_sort_win.configure(fg_color=theme["panel_alt"], hover_color=theme["accent"])
+        self.btn_manage_binds.configure(fg_color=theme["panel_alt"], hover_color=theme["accent"])
+        self.frame_fast_command.configure(fg_color=theme["panel"])
+        self.fast_invite_separator.configure(fg_color=theme["border"])
+        for button in (self.btn_copy_fast_command, self.btn_copy_fast_invites):
+            button.configure(fg_color=theme["accent"], hover_color=theme["accent_hover"])
+        for label in (
+            self.lbl_fast_command, self.lbl_fast_invite,
+            self.lbl_fast_command_value, self.lbl_fast_invite_value,
+        ):
+            label.configure(text_color=theme["title"])
+        self.update_version_selector(version)
 
     def apply_translations(self):
         none_label = self.app.i18n.t("none", "Aucun")
@@ -724,6 +774,7 @@ class OrganizerGUI:
     def on_version_change(self, choice):
         self.app.config.data["game_version"] = choice
         self.app.config.save()
+        self.apply_game_theme()
         self.update_version_selector(choice)
         self.app.sync_wakfu_autofocus_overlay()
         self.var_autofocus.set(self.app.config.data.get(self._autofocus_config_key(), False))
@@ -746,13 +797,14 @@ class OrganizerGUI:
         return ctk.CTkImage(light_image=image, dark_image=image, size=(28, 28))
 
     def update_version_selector(self, selected_version):
+        theme = getattr(self, "game_theme", GAME_THEMES["Unity"])
         for version, button in self.version_buttons.items():
             is_selected = version == selected_version
             button.configure(
-                fg_color="#8e44ad" if is_selected else "#34495e",
-                hover_color="#9b59b6" if is_selected else "#2c3e50",
+                fg_color=theme["accent"] if is_selected else theme["panel_alt"],
+                hover_color=theme["accent_hover"] if is_selected else theme["panel"],
                 border_width=2 if is_selected else 0,
-                border_color="#f1c40f" if is_selected else "#34495e",
+                border_color=theme["border"] if is_selected else theme["panel_alt"],
             )
 
     def get_class_image(self, class_name, is_retro=False):
