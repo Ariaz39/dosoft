@@ -38,6 +38,7 @@ from radial_menu import RadialMenu
 from i18n_manager import I18nManager
 from keyboard_layout_manager import KeyboardLayoutManager
 from wakfu_log_watcher import WakfuLogWatcher
+from wakfu_turn_visual_watcher import WakfuTurnVisualWatcher
 
 
 def try_load_windows_layout(layout_name):
@@ -78,6 +79,7 @@ class OrganizerApp:
         self.refresh()
         self.start_notification_listener()
         self.start_wakfu_log_listener()
+        self.start_wakfu_turn_visual_listener()
         self.setup_system_tray()
         
         self.gui.root.after(1000, self.check_conflicting_software)
@@ -406,10 +408,22 @@ class OrganizerApp:
         )
         self.wakfu_log_watcher = WakfuLogWatcher(
             log_path,
-            self.on_wakfu_turn_candidate,
+            None,
             self.on_wakfu_fighter_identified,
         )
         self.wakfu_log_watcher.start()
+
+    def start_wakfu_turn_visual_listener(self):
+        self.wakfu_turn_visual_watcher = WakfuTurnVisualWatcher(
+            self._get_wakfu_cycle_windows,
+            self.on_wakfu_turn_window_detected,
+        )
+        self.wakfu_turn_visual_watcher.start()
+
+    def _get_wakfu_cycle_windows(self):
+        if self.config.data.get("game_version") != "Wakfu":
+            return []
+        return self.logic.get_cycle_list()
 
     def on_wakfu_fighter_identified(self, fighter_id, pseudo):
         """Store the game fighter ID seen in the log for its WAKFU character."""
@@ -419,8 +433,8 @@ class OrganizerApp:
             self.config.save()
             print(f"[WAKFU] Fighter ID {fighter_id} associé à {pseudo}.")
 
-    def on_wakfu_turn_candidate(self, pseudo):
-        """Focus the WAKFU account whose turn has just begun."""
+    def on_wakfu_turn_window_detected(self, hwnd):
+        """Focus the WAKFU window that visibly received its turn."""
         if self.config.data.get("game_version") != "Wakfu":
             return
         if not self.config.data.get("auto_focus_wakfu", False):
@@ -428,7 +442,7 @@ class OrganizerApp:
 
         cycle_list = self.logic.get_cycle_list()
         for index, account in enumerate(cycle_list):
-            if account["name"] == pseudo:
+            if account["hwnd"] == hwnd:
                 def focus_account(target=account, target_index=index):
                     self.logic.focus_window(target["hwnd"])
                     # The manual next/previous shortcuts continue directly

@@ -75,7 +75,7 @@ class WakfuLogWatcher:
                         elapsed = time.monotonic() - self.last_combat_fighter_at
                         if self.last_combat_fighter and elapsed <= 2:
                             now = time.monotonic()
-                            if (
+                            if self.on_turn_candidate and (
                                 self.last_turn_key != self.last_combat_fighter
                                 or now - self.last_turn_at > 2
                             ):
