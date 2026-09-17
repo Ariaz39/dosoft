@@ -27,7 +27,7 @@
   "tooltip_settings": "Paramétrer la roue radiale",
   "tooltip_off": "Fermer complètement DOSOFT",
   "label_auto_focus": "Auto-Focus 🔔",
-  "tooltip_auto_focus": "Focus automatiquement la page Rétro lors d'une notification",
+  "tooltip_auto_focus": "Focus automatiquement la page du jeu concerné lorsqu'un événement est détecté",
   "hotkey_prev": "Précédent",
   "hotkey_next": "Suivant",
   "hotkey_leader": "Chef",

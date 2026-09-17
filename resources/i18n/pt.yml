@@ -27,7 +27,7 @@
   "tooltip_settings": "Configurar a roda radial",
   "tooltip_off": "Fechar completamente o DOSOFT",
   "label_auto_focus": "Auto-Focus 🔔",
-  "tooltip_auto_focus": "Focar janela Retrô automaticamente em notificação",
+  "tooltip_auto_focus": "Focar automaticamente a janela do jogo relevante quando um evento é detetado",
   "hotkey_prev": "Anterior",
   "hotkey_next": "Próximo",
   "hotkey_leader": "Líder",

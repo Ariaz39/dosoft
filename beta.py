@@ -6,7 +6,7 @@ import os
 
 beta_data_dir = Path(__file__).resolve().parent / ".beta-data"
 beta_data_dir.mkdir(exist_ok=True)
-os.chdir(beta_data_dir)
+os.environ["DOSOFT_SETTINGS_FILE"] = str(beta_data_dir / "settings.json")
 
 from main import start_application
 

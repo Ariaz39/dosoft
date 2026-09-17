@@ -37,6 +37,7 @@ from gui import OrganizerGUI
 from radial_menu import RadialMenu
 from i18n_manager import I18nManager
 from keyboard_layout_manager import KeyboardLayoutManager
+from wakfu_log_watcher import WakfuLogWatcher
 
 
 def try_load_windows_layout(layout_name):
@@ -76,6 +77,7 @@ class OrganizerApp:
         self.setup_hotkeys()
         self.refresh()
         self.start_notification_listener()
+        self.start_wakfu_log_listener()
         self.setup_system_tray()
         
         self.gui.root.after(1000, self.check_conflicting_software)
@@ -397,6 +399,48 @@ class OrganizerApp:
     def refresh(self): 
         slots = self.logic.scan_slots()
         self.gui.root.after(0, self.gui.refresh_list, slots)
+
+    def start_wakfu_log_listener(self):
+        log_path = os.path.join(
+            os.environ.get("APPDATA", ""), "zaap", "gamesLogs", "wakfu", "logs", "wakfu.log"
+        )
+        self.wakfu_log_watcher = WakfuLogWatcher(
+            log_path,
+            self.on_wakfu_fighter_turn,
+            self.on_wakfu_fighter_identified,
+        )
+        self.wakfu_log_watcher.start()
+
+    def on_wakfu_fighter_identified(self, fighter_id, pseudo):
+        """Store the game fighter ID seen in the log for its WAKFU character."""
+        fighter_ids = self.config.data.setdefault("wakfu_fighter_ids", {})
+        if fighter_ids.get(str(fighter_id)) != pseudo:
+            fighter_ids[str(fighter_id)] = pseudo
+            self.config.save()
+            print(f"[WAKFU] Fighter ID {fighter_id} associé à {pseudo}.")
+
+    def on_wakfu_fighter_turn(self, fighter_id):
+        """Focus the mapped WAKFU account and preserve next/previous ordering."""
+        if self.config.data.get("game_version") != "Wakfu":
+            return
+        if not self.config.data.get("auto_focus_wakfu", False):
+            return
+
+        pseudo = self.config.data.get("wakfu_fighter_ids", {}).get(str(fighter_id))
+        if not pseudo:
+            print(f"[WAKFU] Tour détecté pour fighter ID {fighter_id}, personnage non associé.")
+            return
+
+        cycle_list = self.logic.get_cycle_list()
+        for index, account in enumerate(cycle_list):
+            if account["name"] == pseudo:
+                def focus_account(target=account, target_index=index):
+                    self.logic.focus_window(target["hwnd"])
+                    # The manual next/previous shortcuts continue directly
+                    # after/before the account that has just been focused.
+                    self.current_idx = target_index
+                self.gui.root.after(0, focus_account)
+                return
     
     def focus_leader(self):
         if self.logic.leader_hwnd: 

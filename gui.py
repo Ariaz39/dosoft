@@ -213,10 +213,10 @@ class OrganizerGUI:
         self.combo_version.set(cfg.get("game_version", "Unity"))
         self.combo_version.pack(side="left", padx=5, pady=5)
 
-        self.var_autofocus = ctk.BooleanVar(value=cfg.get("auto_focus_retro", False))
+        self.var_autofocus = ctk.BooleanVar(value=cfg.get(self._autofocus_config_key(), False))
         self.chk_autofocus = ctk.CTkCheckBox(self.frame_mode, text=self.app.i18n.t("label_auto_focus", "Auto-Focus 🔔"), variable=self.var_autofocus, command=self.toggle_autofocus, width=110)
         
-        if cfg.get("game_version", "Unity") == "Rétro":
+        if cfg.get("game_version", "Unity") in ("Rétro", "Wakfu"):
             self.chk_autofocus.pack(side="left", padx=(15, 5))
             
         self.bind_i18n_tooltip(self.chk_autofocus, "tooltip_auto_focus", "Focus automatiquement la page Rétro lors d'une notification")
@@ -484,8 +484,13 @@ class OrganizerGUI:
             combo_pos.pack(side="right", padx=(2, 5))
             self.bind_i18n_tooltip(combo_pos, "tooltip_exact_position", "Choisir la position exacte")
 
+    def _autofocus_config_key(self):
+        if self.app.config.data.get("game_version", "Unity") == "Wakfu":
+            return "auto_focus_wakfu"
+        return "auto_focus_retro"
+
     def toggle_autofocus(self):
-        self.app.config.data["auto_focus_retro"] = self.var_autofocus.get()
+        self.app.config.data[self._autofocus_config_key()] = self.var_autofocus.get()
         self.app.config.save()
         
     def on_volume_change(self, value): self.app.update_volume(int(value))
@@ -630,7 +635,8 @@ class OrganizerGUI:
     def on_version_change(self, choice):
         self.app.config.data["game_version"] = choice
         self.app.config.save()
-        if choice == "Rétro":
+        self.var_autofocus.set(self.app.config.data.get(self._autofocus_config_key(), False))
+        if choice in ("Rétro", "Wakfu"):
             self.chk_autofocus.pack(side="left", padx=(15, 5))
         else:
             self.chk_autofocus.pack_forget() 

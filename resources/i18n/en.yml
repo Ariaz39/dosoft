@@ -27,7 +27,7 @@
   "tooltip_settings": "Configure radial wheel",
   "tooltip_off": "Fully close DOSOFT",
   "label_auto_focus": "Auto-Focus 🔔",
-  "tooltip_auto_focus": "Auto-focus Retro window on notification",
+  "tooltip_auto_focus": "Auto-focus the relevant game window when an event is detected",
   "hotkey_prev": "Previous",
   "hotkey_next": "Next",
   "hotkey_leader": "Leader",

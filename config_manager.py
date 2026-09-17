@@ -2,8 +2,8 @@ import json
 import os
 
 class Config:
-    def __init__(self, filename="settings.json"):
-        self.filename = filename
+    def __init__(self, filename=None):
+        self.filename = filename or os.environ.get("DOSOFT_SETTINGS_FILE", "settings.json")
         self.data = {
             "prev_key": "tab",
             "next_key": "²",
@@ -25,6 +25,8 @@ class Config:
             "game_version": "Unity",
             "ignore_organizer_warning": False,
             "auto_focus_retro": False,
+            "auto_focus_wakfu": False,
+            "wakfu_fighter_ids": {},
             # --- NOUVEAU : Gestionnaire de Binds Avancé DOSOFT ---
             "advanced_bind_mode": "cycle", 
             "advanced_bind_modifier": "ctrl",
