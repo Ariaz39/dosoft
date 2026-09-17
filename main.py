@@ -464,12 +464,12 @@ class OrganizerApp:
         for index, account in enumerate(cycle_list):
             if account["hwnd"] == hwnd:
                 def focus_account(target=account, target_index=index):
-                    focused = self.logic.focus_window(target["hwnd"])
+                    focused = self.logic.raise_window_without_activation(target["hwnd"])
                     # The manual next/previous shortcuts continue directly
                     # after/before the account that has just been focused.
                     self.current_idx = target_index
                     write_wakfu_debug(
-                        f"FOCUS_APPLIED reason={reason} account={target['name']} hwnd={hex(target['hwnd'])} "
+                        f"WINDOW_RAISED_NOACTIVATE reason={reason} account={target['name']} hwnd={hex(target['hwnd'])} "
                         f"index={target_index} result={focused}"
                     )
                 self.gui.root.after(0, focus_account)

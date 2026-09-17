@@ -244,6 +244,26 @@ class DofusLogic:
         except:
             return False
 
+    def raise_window_without_activation(self, hwnd):
+        """Raise a game window visually without stealing keyboard focus."""
+        if not hwnd:
+            return False
+        try:
+            if win32gui.IsIconic(hwnd):
+                win32gui.ShowWindow(hwnd, win32con.SW_SHOWNOACTIVATE)
+            win32gui.SetWindowPos(
+                hwnd,
+                win32con.HWND_TOP,
+                0, 0, 0, 0,
+                win32con.SWP_NOMOVE
+                | win32con.SWP_NOSIZE
+                | win32con.SWP_NOACTIVATE
+                | win32con.SWP_SHOWWINDOW,
+            )
+            return True
+        except Exception:
+            return False
+
     def sort_taskbar(self):
         active_accs = self.get_cycle_list()
         if not active_accs: return
