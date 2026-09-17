@@ -209,7 +209,7 @@ class OrganizerGUI:
         self.lbl_versions = ctk.CTkLabel(self.frame_mode, text=self.app.i18n.t("label_versions", "Versions :"))
         self.lbl_versions.pack(side="left", padx=(20, 5), pady=5)
         
-        self.combo_version = ctk.CTkOptionMenu(self.frame_mode, values=["Unity", "Rétro"], width=100, fg_color="#8e44ad", button_color="#9b59b6", button_hover_color="#8e44ad", command=self.on_version_change)
+        self.combo_version = ctk.CTkOptionMenu(self.frame_mode, values=["Unity", "Rétro", "Wakfu"], width=100, fg_color="#8e44ad", button_color="#9b59b6", button_hover_color="#8e44ad", command=self.on_version_change)
         self.combo_version.set(cfg.get("game_version", "Unity"))
         self.combo_version.pack(side="left", padx=5, pady=5)
 
@@ -413,8 +413,14 @@ class OrganizerGUI:
         for widget in self.scroll_frame.winfo_children(): widget.destroy()
         leader_name = self.app.config.data.get("leader_name", "")
         
-        is_retro = self.app.config.data.get("game_version", "Unity") == "Rétro"
-        retro_classes = ["Inconnu", "Feca", "Osamodas", "Enutrof", "Sram", "Xelor", "Ecaflip", "Eniripsa", "Iop", "Cra", "Sadida", "Sacrieur", "Pandawa"]
+        game_version = self.app.config.data.get("game_version", "Unity")
+        is_retro = game_version == "Rétro"
+        uses_manual_classes = game_version in ("Rétro", "Wakfu")
+        manual_classes = [
+            "Inconnu", "Feca", "Osamodas", "Enutrof", "Sram", "Xelor", "Ecaflip",
+            "Eniripsa", "Iop", "Cra", "Sadida", "Sacrieur", "Pandawa", "Roublard",
+            "Zobal", "Steamer", "Eliotrope", "Huppermage", "Ouginak", "Forgelance",
+        ]
         
         for idx, acc in enumerate(accounts):
             row_frame = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
@@ -430,13 +436,13 @@ class OrganizerGUI:
             chk = ctk.CTkCheckBox(row_frame, text=acc['name'][:15], variable=var, width=chk_width, command=lambda n=acc['name'], v=var: self.app.logic.toggle_account(n, v.get()))
             chk.pack(side="left", padx=(5, 0))
 
-            if is_retro:
+            if uses_manual_classes:
                 combo_classe = ctk.CTkOptionMenu(
                     row_frame, 
-                    values=retro_classes, 
+                    values=manual_classes,
                     width=90, height=24,
                     fg_color="#34495e", button_color="#2c3e50", button_hover_color="#1a252f",
-                    command=lambda val, n=acc['name']: self.change_retro_class(n, val)
+                    command=lambda val, n=acc['name']: self.change_manual_class(n, val)
                 )
                 combo_classe.set(acc.get('classe', 'Inconnu'))
                 combo_classe.pack(side="left", padx=5)
@@ -644,7 +650,7 @@ class OrganizerGUI:
         self.skin_cache[filename] = img
         return img
 
-    def change_retro_class(self, name, new_class):
+    def change_manual_class(self, name, new_class):
         self.app.config.data["classes"][name] = new_class
         self.app.config.save()
         self.original_app_refresh()

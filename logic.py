@@ -1,8 +1,47 @@
 import win32gui
 import win32con
+import win32api
 import ctypes
 import win32process
 import time
+import os
+import re
+
+
+WAKFU_JAVA_PROCESS_NAMES = {"java.exe", "javaw.exe"}
+WAKFU_JAVA_WINDOW_CLASSES = ("SunAwt",)
+WAKFU_CHARACTER_TITLE = re.compile(r"^\s*(?P<pseudo>.+?)\s*-\s*wakfu\s*$", re.IGNORECASE)
+
+
+def get_window_process_name(hwnd):
+    """Return the executable name that owns a window, or an empty string."""
+    try:
+        _, pid = win32process.GetWindowThreadProcessId(hwnd)
+        access = win32con.PROCESS_QUERY_INFORMATION | win32con.PROCESS_VM_READ
+        process_handle = win32api.OpenProcess(access, False, pid)
+        try:
+            return os.path.basename(win32process.GetModuleFileNameEx(process_handle, 0)).lower()
+        finally:
+            win32api.CloseHandle(process_handle)
+    except Exception:
+        return ""
+
+
+def is_wakfu_window(hwnd, title, class_name, process_name=None):
+    """Identify a WAKFU game window without matching unrelated WAKFU titles."""
+    if "wakfu" not in title.lower():
+        return False
+
+    process_name = process_name if process_name is not None else get_window_process_name(hwnd)
+    if process_name.lower() in WAKFU_JAVA_PROCESS_NAMES:
+        return True
+    return class_name.startswith(WAKFU_JAVA_WINDOW_CLASSES)
+
+
+def get_wakfu_character_name(title):
+    """Extract the character name from the expected `PSEUDO - WAKFU` title."""
+    match = WAKFU_CHARACTER_TITLE.match(title)
+    return match.group("pseudo").strip() if match else None
 
 class DofusLogic:
     def __init__(self, config):
@@ -24,6 +63,10 @@ class DofusLogic:
                         windows_trouvees.append((hwnd, titre))
                 elif game_version == "Rétro":
                     if "Dofus Retro" in titre:
+                        windows_trouvees.append((hwnd, titre))
+                elif game_version == "Wakfu":
+                    class_name = win32gui.GetClassName(hwnd)
+                    if is_wakfu_window(hwnd, titre, class_name):
                         windows_trouvees.append((hwnd, titre))
             return True
 
@@ -47,7 +90,7 @@ class DofusLogic:
                     parts = titre_clean.split(" - ")
                     pseudo = parts[0].strip()
                     classe = parts[1].strip() if len(parts) > 1 else "Inconnu"
-            else:
+            elif game_version == "Rétro":
                 # Mode Rétro : Si ça commence par "Dofus Retro" sans pseudo devant
                 if titre_clean.startswith("Dofus Retro") or " - " not in titre_clean:
                     pseudo = f"Menu Rétro {menu_counter}"
@@ -57,6 +100,16 @@ class DofusLogic:
                 else:
                     parts = titre_clean.split(" - Dofus Retro")
                     pseudo = parts[0].strip()
+                    classe = self.config.data["classes"].get(pseudo, "Inconnu")
+            else:
+                # WAKFU tourne en Java. Une page de jeu porte `PSEUDO - WAKFU`.
+                pseudo = get_wakfu_character_name(titre_clean)
+                if pseudo is None:
+                    pseudo = f"Menu Wakfu {menu_counter}"
+                    classe = "Inconnu"
+                    is_menu = True
+                    menu_counter += 1
+                else:
                     classe = self.config.data["classes"].get(pseudo, "Inconnu")
                 
             self.config.data["classes"][pseudo] = classe
