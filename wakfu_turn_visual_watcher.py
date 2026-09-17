@@ -17,9 +17,10 @@ class WakfuTurnVisualWatcher:
     suppress the normal ``Fin du tour`` detection.
     """
 
-    def __init__(self, get_windows, on_turn_started, interval=0.35):
+    def __init__(self, get_windows, on_turn_started, is_combat_active, interval=0.35):
         self.get_windows = get_windows
         self.on_turn_started = on_turn_started
+        self.is_combat_active = is_combat_active
         self.interval = interval
         self.end_turn_states = {}
         self.bonus_states = {}
@@ -42,7 +43,7 @@ class WakfuTurnVisualWatcher:
                     had_end_turn = self.end_turn_states.get(hwnd, False)
                     had_bonus = self.bonus_states.get(hwnd, False)
                     previous_brightness = self.previous_brightness.get(hwnd)
-                    has_dimming = (
+                    has_dimming = self.is_combat_active() and (
                         previous_brightness is not None
                         and brightness <= previous_brightness * 0.72
                         and previous_brightness - brightness >= 15

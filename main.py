@@ -62,6 +62,7 @@ class OrganizerApp:
         self.keymaps = KeyboardLayoutManager(self.config.data.get("keyboard_layout", "azerty_fr"))
         try_load_windows_layout(self.config.data.get("keyboard_layout", "azerty_fr"))
         self.logic = DofusLogic(self.config)
+        self.wakfu_combat_active = False
         self.gui = OrganizerGUI(self)
         self.current_idx = 0
         self.hotkey_actions = {} 
@@ -410,6 +411,7 @@ class OrganizerApp:
             log_path,
             None,
             self.on_wakfu_fighter_identified,
+            self.on_wakfu_combat_state_change,
         )
         self.wakfu_log_watcher.start()
 
@@ -417,6 +419,7 @@ class OrganizerApp:
         self.wakfu_turn_visual_watcher = WakfuTurnVisualWatcher(
             self._get_wakfu_cycle_windows,
             self.on_wakfu_turn_window_detected,
+            lambda: self.wakfu_combat_active,
         )
         self.wakfu_turn_visual_watcher.start()
 
@@ -424,6 +427,10 @@ class OrganizerApp:
         if self.config.data.get("game_version") != "Wakfu":
             return []
         return self.logic.get_cycle_list()
+
+    def on_wakfu_combat_state_change(self, is_active):
+        self.wakfu_combat_active = is_active
+        print(f"[WAKFU] Combat {'actif' if is_active else 'terminé'}.")
 
     def on_wakfu_fighter_identified(self, fighter_id, pseudo):
         """Store the game fighter ID seen in the log for its WAKFU character."""
