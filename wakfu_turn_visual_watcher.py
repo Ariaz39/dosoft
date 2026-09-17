@@ -23,6 +23,8 @@ class WakfuTurnVisualWatcher:
         self.interval = interval
         self.end_turn_states = {}
         self.bonus_states = {}
+        self.dimming_states = {}
+        self.previous_brightness = {}
 
     def start(self):
         threading.Thread(
@@ -36,21 +38,42 @@ class WakfuTurnVisualWatcher:
                 for account in self.get_windows():
                     hwnd = account["hwnd"]
                     live_handles.add(hwnd)
-                    has_end_turn, has_bonus = self.get_turn_indicators(hwnd)
+                    has_end_turn, has_bonus, brightness = self.get_turn_indicators(hwnd)
                     had_end_turn = self.end_turn_states.get(hwnd, False)
                     had_bonus = self.bonus_states.get(hwnd, False)
+                    previous_brightness = self.previous_brightness.get(hwnd)
+                    has_dimming = (
+                        previous_brightness is not None
+                        and brightness <= previous_brightness * 0.72
+                        and previous_brightness - brightness >= 15
+                    )
+                    had_dimming = self.dimming_states.get(hwnd, False)
                     self.end_turn_states[hwnd] = has_end_turn
                     self.bonus_states[hwnd] = has_bonus
+                    self.dimming_states[hwnd] = has_dimming
+                    self.previous_brightness[hwnd] = brightness
 
                     # Keep the already-tested end-turn path entirely separate
-                    # from the every-three-turn bonus modal path.
-                    if (has_end_turn and not had_end_turn) or (has_bonus and not had_bonus):
+                    # from the bonus-modal paths. The dimming transition is
+                    # also independent: WAKFU darkens only the active player's
+                    # view while it waits for their bonus choice.
+                    if (
+                        (has_end_turn and not had_end_turn)
+                        or (has_bonus and not had_bonus)
+                        or (has_dimming and not had_dimming)
+                    ):
                         self.on_turn_started(hwnd)
                 self.end_turn_states = {
                     hwnd: state for hwnd, state in self.end_turn_states.items() if hwnd in live_handles
                 }
                 self.bonus_states = {
                     hwnd: state for hwnd, state in self.bonus_states.items() if hwnd in live_handles
+                }
+                self.dimming_states = {
+                    hwnd: state for hwnd, state in self.dimming_states.items() if hwnd in live_handles
+                }
+                self.previous_brightness = {
+                    hwnd: value for hwnd, value in self.previous_brightness.items() if hwnd in live_handles
                 }
             except Exception:
                 # A closed/recreated Java window must not stop the watcher.
@@ -59,14 +82,14 @@ class WakfuTurnVisualWatcher:
 
     @staticmethod
     def get_turn_indicators(hwnd):
-        """Return independent states for end-turn button and bonus selection."""
+        """Return independent states and average game-view brightness."""
         if not win32gui.IsWindow(hwnd) or win32gui.IsIconic(hwnd):
-            return False, False
+            return False, False, 0
 
         left, top, right, bottom = win32gui.GetWindowRect(hwnd)
         width, height = right - left, bottom - top
         if width < 300 or height < 300:
-            return False, False
+            return False, False, 0
 
         window_dc = ctypes.windll.user32.GetWindowDC(hwnd)
         memory_dc = ctypes.windll.gdi32.CreateCompatibleDC(window_dc)
@@ -74,13 +97,13 @@ class WakfuTurnVisualWatcher:
         old_bitmap = ctypes.windll.gdi32.SelectObject(memory_dc, bitmap)
         try:
             if not ctypes.windll.user32.PrintWindow(hwnd, memory_dc, 2):
-                return False, False
+                return False, False, 0
             # Copy the small lower-right area only. It contains the end-turn
             # button for any normal WAKFU window size.
             box = (int(width * 0.925), int(height * 0.88), int(width * 0.995), int(height * 0.99))
             crop_width, crop_height = box[2] - box[0], box[3] - box[1]
             if crop_width <= 0 or crop_height <= 0:
-                return False, False
+                return False, False, 0
 
             buffer = ctypes.create_string_buffer(width * height * 4)
 
@@ -110,7 +133,13 @@ class WakfuTurnVisualWatcher:
             )
             has_end_turn_button = beige_pixels / (crop_width * crop_height) >= 0.28
             has_bonus_selection = WakfuTurnVisualWatcher.has_bonus_selection_modal(image)
-            return has_end_turn_button, has_bonus_selection
+            # The bonus modal dims the full map behind it. Sample the central
+            # game area (without title bar and bottom action bar) so an abrupt
+            # per-window darkening is detectable independently of its cards.
+            scene = image.crop((int(width * 0.10), int(height * 0.15), int(width * 0.90), int(height * 0.75)))
+            red, green, blue = scene.resize((1, 1)).getpixel((0, 0))
+            brightness = (red + green + blue) / 3
+            return has_end_turn_button, has_bonus_selection, brightness
         finally:
             ctypes.windll.gdi32.SelectObject(memory_dc, old_bitmap)
             ctypes.windll.gdi32.DeleteObject(bitmap)
