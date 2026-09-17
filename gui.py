@@ -40,7 +40,16 @@ WAKFU_THEMES = {
         "accent": "#176c7c", "accent_hover": "#23889a", "border": "#c2a468",
         "title": "#f2e5c2", "muted": "#b9c6c2", "banner": "#152228",
         "toast": "#172126", "clear": "#9a3935", "clear_hover": "#b94c45",
-        "background_texture": "wakfu_panel_texture",
+        "background_image": "wakfu_panel_texture.png",
+        "focus_icon": "focus", "volume_icon": "volume",
+        "follow_icon": "follow", "group_icon": "groupe",
+    },
+    "2": {
+        "background": "#080616", "panel": "#121329", "panel_alt": "#2a1d50",
+        "accent": "#7447d5", "accent_hover": "#9a6df2", "border": "#46d8ed",
+        "title": "#f1e9ff", "muted": "#c5bedf", "banner": "#181035",
+        "toast": "#1a1240", "clear": "#8f315f", "clear_hover": "#bc497d",
+        "background_image": "espace.jpg",
         "focus_icon": "focus", "volume_icon": "volume",
         "follow_icon": "follow", "group_icon": "groupe",
     },
@@ -130,7 +139,7 @@ class SettingsWindow(ctk.CTkToplevel):
         self.lbl_wakfu_theme.pack(side="left", padx=8, pady=8)
         self.var_wakfu_theme = ctk.StringVar(value=str(self.app.config.data.get("wakfu_theme", "1")))
         self.menu_wakfu_theme = ctk.CTkOptionMenu(
-            self.frame_wakfu_theme, values=["1"], variable=self.var_wakfu_theme,
+            self.frame_wakfu_theme, values=list(WAKFU_THEMES.keys()), variable=self.var_wakfu_theme,
             command=self.on_wakfu_theme_change,
         )
         self.menu_wakfu_theme.pack(side="right", padx=8, pady=8)
@@ -272,7 +281,7 @@ class OrganizerGUI:
         # les cartes et évite l'effet de panneaux posés sur un aplat vide.
         self.wakfu_background_texture = None
         texture_path = resource_path(
-            "resources", "skin", f"{self.game_theme.get('background_texture', 'wakfu_panel_texture')}.png"
+            "resources", "skin", self.game_theme.get("background_image", "wakfu_panel_texture.png")
         )
         if os.path.exists(texture_path):
             texture = Image.open(texture_path)
@@ -312,7 +321,7 @@ class OrganizerGUI:
         )
         self.frame_module_banner.pack_propagate(False)
         texture_path = resource_path(
-            "resources", "skin", f"{self.game_theme.get('background_texture', 'wakfu_panel_texture')}.png"
+            "resources", "skin", self.game_theme.get("background_image", "wakfu_panel_texture.png")
         )
         self.wakfu_banner_texture = None
         if os.path.exists(texture_path):
@@ -495,12 +504,30 @@ class OrganizerGUI:
         self.skin_cache = {} 
         self.apply_game_theme()
 
+    def refresh_wakfu_theme_images(self):
+        """Reload theme-specific background resources when the cosmetic theme changes."""
+        image_name = self.game_theme.get("background_image", "wakfu_panel_texture.png")
+        path = resource_path("resources", "skin", image_name)
+        if not os.path.exists(path):
+            return
+        image = Image.open(path)
+        self.wakfu_background_texture = ctk.CTkImage(
+            light_image=image, dark_image=image, size=(700, 850)
+        )
+        self.wakfu_banner_texture = ctk.CTkImage(
+            light_image=image, dark_image=image, size=(670, 58)
+        )
+        self.lbl_wakfu_background.configure(image=self.wakfu_background_texture)
+        self.lbl_module_texture.configure(image=self.wakfu_banner_texture)
+
     def apply_game_theme(self):
         """Apply the visual module associated with the selected game engine."""
         version = self.app.config.data.get("game_version", "Unity")
         theme = selected_game_theme(self.app.config.data)
         is_wakfu = version == "Wakfu"
         self.game_theme = theme
+        if is_wakfu:
+            self.refresh_wakfu_theme_images()
 
         self.root.configure(fg_color=theme["background"])
         self.lbl_feedback.configure(fg_color=theme.get("toast", theme["panel"]))
