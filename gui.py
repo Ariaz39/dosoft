@@ -314,11 +314,11 @@ class OrganizerGUI:
             "resources", "skin", self.game_theme.get("background_image", "wakfu_panel_texture.png")
         )
         if os.path.exists(texture_path):
-            self.wakfu_background_texture = self.create_rounded_theme_image(texture_path, (700, 850), 18)
+            self.wakfu_background_texture = self.create_rounded_theme_image(texture_path, (670, 850), 18)
         self.lbl_wakfu_background = ctk.CTkLabel(
             self.root, text="", image=self.wakfu_background_texture, fg_color="transparent"
         )
-        self.lbl_wakfu_background.place(relx=0, rely=0, relwidth=1, relheight=1)
+        self.lbl_wakfu_background.place(x=15, y=0, width=670, height=850)
         self.lbl_wakfu_background.lower()
 
         self.header_f = ctk.CTkFrame(self.root, fg_color="transparent")
@@ -534,7 +534,7 @@ class OrganizerGUI:
         path = resource_path("resources", "skin", image_name)
         if not os.path.exists(path):
             return
-        self.wakfu_background_texture = self.create_rounded_theme_image(path, (700, 850), 18)
+        self.wakfu_background_texture = self.create_rounded_theme_image(path, (670, 850), 18)
         self.wakfu_banner_texture = self.create_rounded_theme_image(path, (670, 58), 13)
         self.lbl_wakfu_background.configure(image=self.wakfu_background_texture)
         self.lbl_module_texture.configure(image=self.wakfu_banner_texture)
@@ -623,7 +623,7 @@ class OrganizerGUI:
             self.lbl_module_subtitle.configure(text="GESTION DE GROUPE")
             self.lbl_module_title.configure(text_color=theme["title"])
             self.lbl_module_subtitle.configure(text_color=theme["muted"])
-            self.lbl_wakfu_background.place(relx=0, rely=0, relwidth=1, relheight=1)
+            self.lbl_wakfu_background.place(x=15, y=0, width=670, height=850)
             self.lbl_wakfu_background.lower()
             if not self.frame_module_banner.winfo_manager():
                 self.frame_module_banner.pack(fill="x", padx=15, pady=(5, 6), before=self.frame_mode)
