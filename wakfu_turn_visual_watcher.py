@@ -13,13 +13,16 @@ class WakfuTurnVisualWatcher:
 
     WAKFU's shared log has no unambiguous turn-start event.  The end-turn
     button and the six-card bonus selection both identify the active player.
+    They deliberately keep independent edge states: the bonus modal must not
+    suppress the normal ``Fin du tour`` detection.
     """
 
     def __init__(self, get_windows, on_turn_started, interval=0.35):
         self.get_windows = get_windows
         self.on_turn_started = on_turn_started
         self.interval = interval
-        self.states = {}
+        self.end_turn_states = {}
+        self.bonus_states = {}
 
     def start(self):
         threading.Thread(
@@ -33,13 +36,21 @@ class WakfuTurnVisualWatcher:
                 for account in self.get_windows():
                     hwnd = account["hwnd"]
                     live_handles.add(hwnd)
-                    is_active = self.has_active_turn_indicator(hwnd)
-                    was_active = self.states.get(hwnd, False)
-                    self.states[hwnd] = is_active
-                    if is_active and not was_active:
+                    has_end_turn, has_bonus = self.get_turn_indicators(hwnd)
+                    had_end_turn = self.end_turn_states.get(hwnd, False)
+                    had_bonus = self.bonus_states.get(hwnd, False)
+                    self.end_turn_states[hwnd] = has_end_turn
+                    self.bonus_states[hwnd] = has_bonus
+
+                    # Keep the already-tested end-turn path entirely separate
+                    # from the every-three-turn bonus modal path.
+                    if (has_end_turn and not had_end_turn) or (has_bonus and not had_bonus):
                         self.on_turn_started(hwnd)
-                self.states = {
-                    hwnd: state for hwnd, state in self.states.items() if hwnd in live_handles
+                self.end_turn_states = {
+                    hwnd: state for hwnd, state in self.end_turn_states.items() if hwnd in live_handles
+                }
+                self.bonus_states = {
+                    hwnd: state for hwnd, state in self.bonus_states.items() if hwnd in live_handles
                 }
             except Exception:
                 # A closed/recreated Java window must not stop the watcher.
@@ -47,15 +58,15 @@ class WakfuTurnVisualWatcher:
             time.sleep(self.interval)
 
     @staticmethod
-    def has_active_turn_indicator(hwnd):
-        """Return whether an end-turn or bonus-selection control is visible."""
+    def get_turn_indicators(hwnd):
+        """Return independent states for end-turn button and bonus selection."""
         if not win32gui.IsWindow(hwnd) or win32gui.IsIconic(hwnd):
-            return False
+            return False, False
 
         left, top, right, bottom = win32gui.GetWindowRect(hwnd)
         width, height = right - left, bottom - top
         if width < 300 or height < 300:
-            return False
+            return False, False
 
         window_dc = ctypes.windll.user32.GetWindowDC(hwnd)
         memory_dc = ctypes.windll.gdi32.CreateCompatibleDC(window_dc)
@@ -63,13 +74,13 @@ class WakfuTurnVisualWatcher:
         old_bitmap = ctypes.windll.gdi32.SelectObject(memory_dc, bitmap)
         try:
             if not ctypes.windll.user32.PrintWindow(hwnd, memory_dc, 2):
-                return False
+                return False, False
             # Copy the small lower-right area only. It contains the end-turn
             # button for any normal WAKFU window size.
             box = (int(width * 0.925), int(height * 0.88), int(width * 0.995), int(height * 0.99))
             crop_width, crop_height = box[2] - box[0], box[3] - box[1]
             if crop_width <= 0 or crop_height <= 0:
-                return False
+                return False, False
 
             buffer = ctypes.create_string_buffer(width * height * 4)
 
@@ -98,7 +109,8 @@ class WakfuTurnVisualWatcher:
                 for red, green, blue in pixels
             )
             has_end_turn_button = beige_pixels / (crop_width * crop_height) >= 0.28
-            return has_end_turn_button or WakfuTurnVisualWatcher.has_bonus_selection_modal(image)
+            has_bonus_selection = WakfuTurnVisualWatcher.has_bonus_selection_modal(image)
+            return has_end_turn_button, has_bonus_selection
         finally:
             ctypes.windll.gdi32.SelectObject(memory_dc, old_bitmap)
             ctypes.windll.gdi32.DeleteObject(bitmap)
@@ -107,7 +119,7 @@ class WakfuTurnVisualWatcher:
 
     @staticmethod
     def has_bonus_selection_modal(image):
-        """Recognize the central six-card bonus modal shown every three turns."""
+        """Recognize the six-card panel and its ``Passer`` button zone."""
         width, height = image.size
         box = (int(width * 0.39), int(height * 0.25), int(width * 0.61), int(height * 0.73))
         crop_width, crop_height = box[2] - box[0], box[3] - box[1]
@@ -116,14 +128,25 @@ class WakfuTurnVisualWatcher:
 
         # The six offered cards form a compact group of vivid yellow, green,
         # cyan, red and purple tiles at the centre of the dimmed game view.
+        # Directly beneath them is WAKFU's dark horizontal ``Passer`` button;
+        # requiring both regions avoids treating ordinary spell effects as the
+        # modal.
         pixels = image.crop(box).getdata()
         vivid_pixels = sum(
             max(red, green, blue) >= 180 and max(red, green, blue) - min(red, green, blue) >= 130
             for red, green, blue in pixels
         )
-        return vivid_pixels / (crop_width * crop_height) >= 0.05
+        has_six_cards = vivid_pixels / (crop_width * crop_height) >= 0.05
+
+        pass_box = (int(width * 0.43), int(height * 0.66), int(width * 0.57), int(height * 0.74))
+        pass_pixels = list(image.crop(pass_box).getdata())
+        light_text_pixels = sum(
+            red >= 180 and green >= 180 and blue >= 180 for red, green, blue in pass_pixels
+        )
+        has_passer_zone = light_text_pixels >= max(8, len(pass_pixels) * 0.002)
+        return has_six_cards and has_passer_zone
 
     @staticmethod
     def has_end_turn_button(hwnd):
-        """Compatibility alias used by existing diagnostic tests."""
-        return WakfuTurnVisualWatcher.has_active_turn_indicator(hwnd)
+        """Return only the normal end-turn state (never the bonus modal)."""
+        return WakfuTurnVisualWatcher.get_turn_indicators(hwnd)[0]
