@@ -225,6 +225,7 @@ class OrganizerGUI:
         self.tooltip.withdraw() 
         
         self.hotkey_btns = {}
+        self.hotkey_clear_buttons = []
         self.hotkey_labels = {}
         self.tooltip_i18n_map = {}
 
@@ -477,6 +478,12 @@ class OrganizerGUI:
         self.btn_refresh.configure(fg_color=theme["accent"], hover_color=theme["accent_hover"])
         self.btn_sort_win.configure(fg_color=theme["panel_alt"], hover_color=theme["accent"])
         self.btn_manage_binds.configure(fg_color=theme["panel_alt"], hover_color=theme["accent"])
+        for button in self.hotkey_btns.values():
+            button.configure(fg_color=theme["accent"], hover_color=theme["accent_hover"])
+        clear_color = "#9a3935" if is_wakfu else "#c0392b"
+        clear_hover = "#b94c45" if is_wakfu else "#e74c3c"
+        for button in self.hotkey_clear_buttons:
+            button.configure(fg_color=clear_color, hover_color=clear_hover)
         self.combo_mode.configure(
             fg_color=theme["accent"], button_color=theme["panel_alt"],
             button_hover_color=theme["accent_hover"],
@@ -748,13 +755,25 @@ class OrganizerGUI:
         self.hotkey_labels[config_key] = (lbl, label_key)
         
         current_val = self.app.config.data.get(config_key, "")
-        btn = ctk.CTkButton(parent, text=current_val if current_val else self.app.i18n.t("none", "Aucun"), width=80, command=lambda: self.catch_key(config_key, btn, allow_mouse=True))
+        theme = getattr(self, "game_theme", GAME_THEMES["Unity"])
+        btn = ctk.CTkButton(
+            parent, text=current_val if current_val else self.app.i18n.t("none", "Aucun"),
+            width=80, fg_color=theme["accent"], hover_color=theme["accent_hover"],
+            command=lambda: self.catch_key(config_key, btn, allow_mouse=True),
+        )
         btn.grid(row=row, column=col_offset+1, padx=2, pady=2)
         
         self.hotkey_btns[config_key] = btn 
         
-        btn_x = ctk.CTkButton(parent, text="✖", width=25, fg_color="#c0392b", hover_color="#e74c3c", command=lambda: self.clear_key(config_key, btn))
+        is_wakfu = self.app.config.data.get("game_version") == "Wakfu"
+        btn_x = ctk.CTkButton(
+            parent, text="✖", width=25,
+            fg_color="#9a3935" if is_wakfu else "#c0392b",
+            hover_color="#b94c45" if is_wakfu else "#e74c3c",
+            command=lambda: self.clear_key(config_key, btn),
+        )
         btn_x.grid(row=row, column=col_offset+2, padx=(0, 10))
+        self.hotkey_clear_buttons.append(btn_x)
         self.bind_i18n_tooltip(btn_x, "tooltip_clear_shortcut", "Effacer le raccourci")
 
     def catch_key(self, config_key, btn, allow_mouse=False):
@@ -864,12 +883,20 @@ class OrganizerGUI:
                     if self.app.config.data[k] == new_value:
                         self.app.config.data[k] = ""
                         if k in self.hotkey_btns:
-                            self.hotkey_btns[k].configure(text=self.app.i18n.t("none", "Aucun"), fg_color=["#3a7ebf", "#1f538d"])
+                            theme = getattr(self, "game_theme", GAME_THEMES["Unity"])
+                            self.hotkey_btns[k].configure(
+                                text=self.app.i18n.t("none", "Aucun"),
+                                fg_color=theme["accent"], hover_color=theme["accent_hover"],
+                            )
 
         self.app.config.data[config_key] = new_value
         self.app.config.save()
         
-        btn.configure(text=new_value if new_value else self.app.i18n.t("none", "Aucun"), fg_color=["#3a7ebf", "#1f538d"])
+        theme = getattr(self, "game_theme", GAME_THEMES["Unity"])
+        btn.configure(
+            text=new_value if new_value else self.app.i18n.t("none", "Aucun"),
+            fg_color=theme["accent"], hover_color=theme["accent_hover"],
+        )
         self.app.setup_hotkeys()
         self.is_listening = False
 
