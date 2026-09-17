@@ -377,7 +377,7 @@ class OrganizerGUI:
         self.scroll_frame = ctk.CTkScrollableFrame(self.root)
         self.scroll_frame.pack(fill="both", expand=True, padx=15, pady=(5, 10))
 
-        self.frame_fast_command = ctk.CTkFrame(self.root, fg_color="#263641", corner_radius=8, height=78)
+        self.frame_fast_command = ctk.CTkFrame(self.root, fg_color="#263641", corner_radius=8, height=94)
         self.frame_fast_command.pack_propagate(False)
         self.frame_fast_command_row = ctk.CTkFrame(self.frame_fast_command, fg_color="transparent")
         self.frame_fast_command_row.pack(fill="x", padx=2, pady=(2, 0))
@@ -432,10 +432,12 @@ class OrganizerGUI:
         self.btn_hide = ctk.CTkButton(self.frame_footer, text=self.app.i18n.t("btn_hide_ui", "Cacher l'UI"), command=self.toggle_visibility, fg_color="transparent", border_width=1, width=70)
         self.btn_hide.pack(side="right")
 
-        self.frame_msg = ctk.CTkFrame(self.root, fg_color="transparent", height=20)
-        self.frame_msg.pack(fill="x", padx=15, pady=(0, 5))
-        self.lbl_feedback = ctk.CTkLabel(self.frame_msg, text="", font=ctk.CTkFont(size=13, weight="bold"))
-        self.lbl_feedback.pack(expand=True)
+        # Les retours sont des toasts temporaires : aucun conteneur permanent ne
+        # vient donc casser la finition entre Fast Commande et le pied de page.
+        self.lbl_feedback = ctk.CTkLabel(
+            self.root, text="", font=ctk.CTkFont(size=13, weight="bold"),
+            corner_radius=7, padx=10, pady=5, fg_color="#172126",
+        )
         
         self.skin_cache = {} 
         self.apply_game_theme()
@@ -557,9 +559,10 @@ class OrganizerGUI:
 
     def show_temporary_message(self, text, color="#2ecc71"):
         self.lbl_feedback.configure(text=text, text_color=color)
+        self.lbl_feedback.place(relx=0.5, rely=0.82, anchor="center")
         if hasattr(self, "feedback_timer"):
             self.root.after_cancel(self.feedback_timer)
-        self.feedback_timer = self.root.after(2500, lambda: self.lbl_feedback.configure(text=""))
+        self.feedback_timer = self.root.after(2500, self.lbl_feedback.place_forget)
 
     def change_position(self, name, new_val_str):
         new_index = int(new_val_str) - 1
