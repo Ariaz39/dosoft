@@ -119,32 +119,23 @@ class WakfuTurnVisualWatcher:
 
     @staticmethod
     def has_bonus_selection_modal(image):
-        """Recognize the six-card panel and its ``Passer`` button zone."""
+        """Recognize the enabled ``Passer`` button in the bonus panel."""
         width, height = image.size
-        box = (int(width * 0.39), int(height * 0.25), int(width * 0.61), int(height * 0.73))
+        # The cards are visible in every client.  Only the window whose turn it
+        # is renders the actionable ``Passer`` button, directly below them.
+        # Restricting the check to the word/button strip prevents the shared
+        # six-card display from stealing focus on inactive clients.
+        box = (int(width * 0.37), int(height * 0.67), int(width * 0.63), int(height * 0.715))
         crop_width, crop_height = box[2] - box[0], box[3] - box[1]
         if crop_width <= 0 or crop_height <= 0:
             return False
 
-        # The six offered cards form a compact group of vivid yellow, green,
-        # cyan, red and purple tiles at the centre of the dimmed game view.
-        # Directly beneath them is WAKFU's dark horizontal ``Passer`` button;
-        # requiring both regions avoids treating ordinary spell effects as the
-        # modal.
         pixels = image.crop(box).getdata()
-        vivid_pixels = sum(
-            max(red, green, blue) >= 180 and max(red, green, blue) - min(red, green, blue) >= 130
+        light_text_pixels = sum(
+            red >= 200 and green >= 200 and blue >= 200
             for red, green, blue in pixels
         )
-        has_six_cards = vivid_pixels / (crop_width * crop_height) >= 0.05
-
-        pass_box = (int(width * 0.43), int(height * 0.66), int(width * 0.57), int(height * 0.74))
-        pass_pixels = list(image.crop(pass_box).getdata())
-        light_text_pixels = sum(
-            red >= 180 and green >= 180 and blue >= 180 for red, green, blue in pass_pixels
-        )
-        has_passer_zone = light_text_pixels >= max(8, len(pass_pixels) * 0.002)
-        return has_six_cards and has_passer_zone
+        return light_text_pixels / (crop_width * crop_height) >= 0.025
 
     @staticmethod
     def has_end_turn_button(hwnd):
