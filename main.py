@@ -406,7 +406,7 @@ class OrganizerApp:
         )
         self.wakfu_log_watcher = WakfuLogWatcher(
             log_path,
-            self.on_wakfu_fighter_turn,
+            self.on_wakfu_turn_candidate,
             self.on_wakfu_fighter_identified,
         )
         self.wakfu_log_watcher.start()
@@ -419,16 +419,11 @@ class OrganizerApp:
             self.config.save()
             print(f"[WAKFU] Fighter ID {fighter_id} associé à {pseudo}.")
 
-    def on_wakfu_fighter_turn(self, fighter_id):
-        """Focus the mapped WAKFU account and preserve next/previous ordering."""
+    def on_wakfu_turn_candidate(self, pseudo):
+        """Focus the WAKFU account whose turn has just begun."""
         if self.config.data.get("game_version") != "Wakfu":
             return
         if not self.config.data.get("auto_focus_wakfu", False):
-            return
-
-        pseudo = self.config.data.get("wakfu_fighter_ids", {}).get(str(fighter_id))
-        if not pseudo:
-            print(f"[WAKFU] Tour détecté pour fighter ID {fighter_id}, personnage non associé.")
             return
 
         cycle_list = self.logic.get_cycle_list()
