@@ -41,6 +41,9 @@ class CharacterQuickBar:
         self._last_observed_foreground = None
         self._selected_hwnd = 0
         self._color_transition_token = 0
+        self._render_signature = None
+        self._pending_signature = None
+        self._layout_transition_token = 0
         self._transitioning = False
         self._pending_foreground = 0
         self._shape_sizes = {}
@@ -114,16 +117,74 @@ class CharacterQuickBar:
             self.accounts = active_accounts
             self.ghost_accounts = []
             self.ghost_team = None
-        self.rebuild()
+        signature = self.display_signature()
+        if signature != self._render_signature:
+            self.request_layout_refresh(signature)
         if self.config.data.get("character_bar_visible", False):
             self.set_visible(True)
+
+    def display_signature(self):
+        """Stable render identity: unchanged scans must not redraw the bar."""
+        account_fields = lambda accounts: tuple(
+            (account.get("name"), account.get("hwnd"), account.get("classe"), account.get("team"))
+            for account in accounts
+        )
+        return (
+            self.engine,
+            self.var_vertical.get(),
+            account_fields(self.accounts),
+            self.ghost_team,
+            account_fields(self.ghost_accounts),
+        )
+
+    def request_layout_refresh(self, signature):
+        """Fade existing cards before applying a different ordering/list."""
+        if self._pending_signature == signature:
+            return
+        if not self.window.winfo_viewable() or not self.cards:
+            self.rebuild()
+            self._render_signature = signature
+            self._pending_signature = None
+            return
+        self._pending_signature = signature
+        self._layout_transition_token += 1
+        token = self._layout_transition_token
+        self.debug("disposition: transition demandée")
+        for step in range(4):
+            self.parent_root.after(
+                step * 26,
+                lambda progress=step / 3, current=token: self.fade_layout_cards(progress, current),
+            )
+        self.parent_root.after(104, lambda current=token: self.finish_layout_refresh(current))
+
+    def fade_layout_cards(self, progress, token):
+        if token != self._layout_transition_token:
+            return
+        panel = self.theme.get("panel", "#283845")
+        panel_alt = self.theme.get("panel_alt", "#34495e")
+        for button, _account in self.cards:
+            button.configure(
+                fg_color=self.blend_color(panel_alt, panel, progress),
+                border_color=self.blend_color(panel_alt, panel, progress),
+            )
+
+    def finish_layout_refresh(self, token):
+        if token != self._layout_transition_token:
+            return
+        self.rebuild()
+        self._render_signature = self._pending_signature
+        self._pending_signature = None
+        self.debug("disposition: transition appliquée")
 
     def set_visible(self, visible):
         if not visible:
             self.window.withdraw()
             self.ghost_window.withdraw()
             return
-        self.rebuild()
+        signature = self.display_signature()
+        if signature != self._render_signature and self._pending_signature is None:
+            self.rebuild()
+            self._render_signature = signature
         self.position_window()
         self.window.deiconify()
         self.window.lift()
@@ -138,7 +199,7 @@ class CharacterQuickBar:
         self.var_vertical.set(not self.var_vertical.get())
         self.config.data["character_bar_vertical"] = self.var_vertical.get()
         self.config.save()
-        self.rebuild()
+        self.request_layout_refresh(self.display_signature())
 
     @staticmethod
     def load_menu_icon(filename):
