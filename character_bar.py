@@ -36,6 +36,9 @@ class CharacterQuickBar:
         self.image_cache = {}
         self.cards = []
         self._drag_origin = None
+        self._last_foreground = None
+        self._transitioning = False
+        self._pending_foreground = 0
         self.var_vertical = ctk.BooleanVar(value=config.data.get("character_bar_vertical", False))
 
         self.window = ctk.CTkToplevel(parent_root)
@@ -273,6 +276,7 @@ class CharacterQuickBar:
         self.apply_rounded_shape(self.window)
         self.ghost_control_space = controls.winfo_width()
         self.rebuild_ghost_bar()
+        self._last_foreground = None
         self.update_card_states()
 
     def reanchor_after_resize(self, was_visible, old_x, old_y, old_width, old_height):
@@ -385,6 +389,17 @@ class CharacterQuickBar:
             foreground = win32gui.GetForegroundWindow()
         except Exception:
             foreground = 0
+        if foreground == self._last_foreground:
+            return
+        self._last_foreground = foreground
+        self._pending_foreground = foreground
+        if self.window.winfo_viewable() and not self._transitioning:
+            self.soft_refresh_cards()
+            return
+        self.apply_card_states(foreground)
+
+    def apply_card_states(self, foreground):
+        """Paint card state only once per actual foreground-window change."""
         theme = self.theme
         leader_name = self.config.data.get("leader_name", "")
         gold = "#e5bd5d"
@@ -396,6 +411,28 @@ class CharacterQuickBar:
                 border_color=gold if is_leader else theme.get("border", "#78b9e8") if active else theme.get("panel_alt", "#34495e"),
                 border_width=2 if is_leader or active else 1,
             )
+
+    def soft_refresh_cards(self):
+        """Briefly hide both layered popups while Windows changes focus.
+
+        This prevents the compositor from showing an intermediate black layer
+        when CustomTkinter repaints two overlapping borderless windows.
+        """
+        self._transitioning = True
+        self.ghost_window.withdraw()
+        self.window.withdraw()
+        self.parent_root.after(70, self.finish_soft_refresh)
+
+    def finish_soft_refresh(self):
+        try:
+            self.apply_card_states(self._pending_foreground)
+            if self.config.data.get("character_bar_visible", False):
+                self.window.deiconify()
+                self.apply_rounded_shape(self.window)
+                self.window.lift()
+                self.sync_ghost_bar()
+        finally:
+            self._transitioning = False
 
     def poll_active_window(self):
         try:
