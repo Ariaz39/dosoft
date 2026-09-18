@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import tkinter as tk
+import ctypes
 
 import customtkinter as ctk
 import win32gui
@@ -41,12 +42,6 @@ class CharacterQuickBar:
         self.window.withdraw()
         self.window.overrideredirect(True)
         self.window.attributes("-topmost", True)
-        self.transparent_color = "#0b0b0b"
-        try:
-            self.window.configure(fg_color=self.transparent_color)
-            self.window.attributes("-transparentcolor", self.transparent_color)
-        except tk.TclError:
-            pass
         self.window.resizable(False, False)
         self.window.protocol("WM_DELETE_WINDOW", self.hide_from_bar)
 
@@ -57,8 +52,6 @@ class CharacterQuickBar:
         self.ghost_window.overrideredirect(True)
         self.ghost_window.attributes("-topmost", True)
         try:
-            self.ghost_window.configure(fg_color=self.transparent_color)
-            self.ghost_window.attributes("-transparentcolor", self.transparent_color)
             self.ghost_window.attributes("-alpha", 0.58)
         except tk.TclError:
             pass
@@ -112,6 +105,7 @@ class CharacterQuickBar:
         self.window.deiconify()
         self.window.lift()
         self.window.attributes("-topmost", True)
+        self.apply_rounded_shape(self.window)
         self.sync_ghost_bar()
 
     def hide_from_bar(self):
@@ -226,6 +220,7 @@ class CharacterQuickBar:
         title = theme.get("title", "#ecf0f1")
         muted = theme.get("muted", "#b7c9d6")
         self.outer.configure(fg_color=panel, border_color=border)
+        self.window.configure(fg_color=panel)
         is_vertical = self.var_vertical.get()
         controls = self.create_controls(self.content, theme)
         # Keep the inactive team portraits exactly on the same axis as the
@@ -246,6 +241,7 @@ class CharacterQuickBar:
             ctk.CTkLabel(cards_frame, text="Aucun personnage détecté", text_color=muted).pack(padx=12, pady=7)
             self.reanchor_after_resize(was_visible, old_x, old_y, old_width, old_height)
             self.window.update_idletasks()
+            self.apply_rounded_shape(self.window)
             self.ghost_control_space = controls.winfo_width()
             self.rebuild_ghost_bar()
             return
@@ -274,6 +270,7 @@ class CharacterQuickBar:
             self.cards.append((card, account))
         self.reanchor_after_resize(was_visible, old_x, old_y, old_width, old_height)
         self.window.update_idletasks()
+        self.apply_rounded_shape(self.window)
         self.ghost_control_space = controls.winfo_width()
         self.rebuild_ghost_bar()
         self.update_card_states()
@@ -310,6 +307,7 @@ class CharacterQuickBar:
             fg_color=theme.get("panel", "#283845"),
             border_color=theme.get("border", "#78b9e8"),
         )
+        self.ghost_window.configure(fg_color=theme.get("panel", "#283845"))
         is_vertical = self.var_vertical.get()
         cards_frame = ctk.CTkFrame(self.ghost_content, width=1, fg_color="transparent")
         spacer = ctk.CTkFrame(self.ghost_content, fg_color="transparent")
@@ -359,9 +357,28 @@ class CharacterQuickBar:
             ghost_y = main_y + main_h // 2 if below else main_y - ghost_h + main_h // 2
         self.ghost_window.geometry(f"+{int(ghost_x)}+{int(ghost_y)}")
         self.ghost_window.deiconify()
+        self.apply_rounded_shape(self.ghost_window)
         self.ghost_window.lift()
         self.window.lift()
         self.window.attributes("-topmost", True)
+
+    @staticmethod
+    def apply_rounded_shape(window):
+        """Clip a borderless Windows popup to its rounded module outline.
+
+        `-transparentcolor` conflicts with the alpha compositing used by the
+        ghost bar on some Windows builds, briefly exposing a black rectangle.
+        A native region has no such repaint artefact.
+        """
+        try:
+            window.update_idletasks()
+            width, height = window.winfo_width(), window.winfo_height()
+            if width < 2 or height < 2:
+                return
+            region = ctypes.windll.gdi32.CreateRoundRectRgn(0, 0, width + 1, height + 1, 28, 28)
+            ctypes.windll.user32.SetWindowRgn(window.winfo_id(), region, True)
+        except Exception:
+            pass
 
     def update_card_states(self):
         try:
