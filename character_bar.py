@@ -72,6 +72,7 @@ class CharacterQuickBar:
         except tk.TclError:
             pass
         self.ghost_window.resizable(False, False)
+        self.parent_root.after_idle(self.make_ghost_non_activating)
 
         # Default CustomTkinter frames request 200 px.  A tiny base width lets
         # the vertical layout contract to the portraits instead.
@@ -400,6 +401,7 @@ class CharacterQuickBar:
         self.ghost_window.configure(fg_color=theme.get("panel", "#283845"))
         for widget in (self.ghost_outer, self.ghost_content):
             widget.bind("<Button-1>", self.select_ghost_team)
+            widget.bind("<ButtonPress-1>", lambda _event: self.keep_ghost_below_main())
         is_vertical = self.var_vertical.get()
         cards_frame = ctk.CTkFrame(self.ghost_content, width=1, fg_color="transparent")
         cards_frame.bind("<Button-1>", self.select_ghost_team)
@@ -515,6 +517,20 @@ class CharacterQuickBar:
             ghost_root = ctypes.windll.user32.GetAncestor(ghost_widget, 2) or ghost_widget
             flags = 0x0001 | 0x0002 | 0x0010  # NOSIZE | NOMOVE | NOACTIVATE
             ctypes.windll.user32.SetWindowPos(main_root, ghost_root, 0, 0, 0, 0, flags)
+        except Exception:
+            pass
+
+    def make_ghost_non_activating(self):
+        """Let the ghost receive clicks without Windows raising it on top."""
+        try:
+            ghost_widget = self.ghost_window.winfo_id()
+            ghost_root = ctypes.windll.user32.GetAncestor(ghost_widget, 2) or ghost_widget
+            ex_style = ctypes.windll.user32.GetWindowLongW(ghost_root, -20)  # GWL_EXSTYLE
+            ctypes.windll.user32.SetWindowLongW(ghost_root, -20, ex_style | 0x08000000)  # WS_EX_NOACTIVATE
+            flags = 0x0001 | 0x0002 | 0x0004 | 0x0010 | 0x0020  # NOSIZE | NOMOVE | NOZORDER | NOACTIVATE | FRAMECHANGED
+            ctypes.windll.user32.SetWindowPos(ghost_root, 0, 0, 0, 0, 0, flags)
+            self.debug(f"fantôme non-activable hwnd={ghost_root}")
+            self.keep_ghost_below_main()
         except Exception:
             pass
 
