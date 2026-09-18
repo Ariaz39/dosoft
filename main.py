@@ -276,13 +276,13 @@ class OrganizerApp:
                 
                 if is_pressed and not radial_was_open:
                     radial_was_open = True
-                    is_retro = self.config.data.get("game_version", "Unity") == "Rétro"
-                    
-                    # Préparation des têtes Retro ou Unity
+                    game_version = self.config.data.get("game_version", "Unity")
+                    class_engine = "retro" if game_version == "Rétro" else "wakfu" if game_version == "Wakfu" else "unity"
+
+                    # Chaque moteur fournit son propre visuel de classe.
                     active_accs = []
                     for acc in self.logic.get_cycle_list():
                         cls = acc.get('classe', 'Inconnu')
-                        if is_retro and cls != "Inconnu": cls = f"{cls}_retro"
                         active_accs.append({'name': acc['name'], 'classe': cls, 'hwnd': acc['hwnd']})
                     
                     fg_hwnd = win32gui.GetForegroundWindow()
@@ -293,7 +293,9 @@ class OrganizerApp:
                             break
                             
                     x, y = win32api.GetCursorPos()
-                    self.gui.root.after(0, self.radial_focus.show, x, y, active_accs, current_name)
+                    self.gui.root.after(
+                        0, self.radial_focus.show, x, y, active_accs, current_name, class_engine
+                    )
                     
                 elif radial_was_open and not is_pressed:
                     radial_was_open = False

@@ -830,7 +830,8 @@ class OrganizerGUI:
             row_frame = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
             row_frame.pack(fill="x", pady=2)
             
-            img = self.get_class_image(acc.get('classe', 'Inconnu'), is_retro)
+            class_engine = "retro" if is_retro else "wakfu" if game_version == "Wakfu" else "unity"
+            img = self.get_class_image(acc.get('classe', 'Inconnu'), class_engine)
             if img: ctk.CTkLabel(row_frame, image=img, text="").pack(side="left", padx=5)
             else: ctk.CTkLabel(row_frame, text="👤").pack(side="left", padx=5) 
             
@@ -1108,13 +1109,13 @@ class OrganizerGUI:
                 border_color=theme["border"] if is_selected else theme["panel_alt"],
             )
 
-    def get_class_image(self, class_name, is_retro=False):
-        filename = f"{class_name}_retro" if is_retro and class_name != "Inconnu" else class_name
-        if filename in self.skin_cache: return self.skin_cache[filename]
-        path = skin_path(filename)
+    def get_class_image(self, class_name, engine="unity"):
+        cache_key = f"{engine}:{class_name}"
+        if cache_key in self.skin_cache: return self.skin_cache[cache_key]
+        path = skin_path(class_name, engine=engine)
         if not os.path.exists(path): return None
         img = ctk.CTkImage(light_image=Image.open(path), dark_image=Image.open(path), size=(24, 24))
-        self.skin_cache[filename] = img
+        self.skin_cache[cache_key] = img
         return img
 
     def change_manual_class(self, name, new_class):
@@ -1357,13 +1358,14 @@ class CharManagerWindow(ctk.CTkToplevel):
                 ctk.CTkLabel(self.scroll_list, text=self.app.i18n.t("char_manager_no_character", "Aucun personnage connecté détecté."), text_color="#e74c3c").pack(pady=50)
                 return
 
-            is_retro = self.app.config.data.get("game_version", "Unity") == "Rétro"
+            game_version = self.app.config.data.get("game_version", "Unity")
+            class_engine = "retro" if game_version == "Rétro" else "wakfu" if game_version == "Wakfu" else "unity"
             for acc in active_list:
                 pseudo = acc['name']
                 frame_row = ctk.CTkFrame(self.scroll_list)
                 frame_row.pack(fill="x", pady=2, padx=5)
                 
-                img = self.parent.get_class_image(acc.get('classe', 'Inconnu'), is_retro)
+                img = self.parent.get_class_image(acc.get('classe', 'Inconnu'), class_engine)
                 if img: ctk.CTkLabel(frame_row, text="", image=img).pack(side="left", padx=10, pady=5)
                 
                 ctk.CTkLabel(frame_row, text=pseudo, font=ctk.CTkFont(size=16, weight="bold")).pack(side="left", padx=5)
