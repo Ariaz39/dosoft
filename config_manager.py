@@ -20,6 +20,7 @@ class Config:
             "show_tooltips": True,
             "character_bar_visible": False,
             "character_bar_position": [],
+            "character_bar_vertical": False,
             "volume_level": 50,
             "tutorial_done": False,
             "radial_menu_active": True,

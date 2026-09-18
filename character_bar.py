@@ -31,6 +31,7 @@ class CharacterQuickBar:
         self.image_cache = {}
         self.cards = []
         self._drag_origin = None
+        self.var_vertical = ctk.BooleanVar(value=config.data.get("character_bar_vertical", False))
 
         self.window = ctk.CTkToplevel(parent_root)
         self.window.withdraw()
@@ -42,18 +43,24 @@ class CharacterQuickBar:
         self.outer = ctk.CTkFrame(self.window, corner_radius=14, border_width=1)
         self.outer.pack(padx=1, pady=1)
 
-        self.handle = ctk.CTkFrame(self.outer, height=21, corner_radius=10)
+        self.handle = ctk.CTkFrame(self.outer, height=25, corner_radius=10)
         self.handle.pack(fill="x", padx=5, pady=(5, 2))
         self.handle.pack_propagate(False)
         self.handle_label = ctk.CTkLabel(
             self.handle, text="⠿  Personnages", font=ctk.CTkFont(size=11, weight="bold")
         )
         self.handle_label.pack(side="left", padx=(9, 2))
+        self.vertical_switch = ctk.CTkSwitch(
+            self.handle, text="Vertical", variable=self.var_vertical,
+            width=74, height=18, font=ctk.CTkFont(size=10),
+            command=self.toggle_orientation,
+        )
+        self.vertical_switch.pack(side="right", padx=(2, 3), pady=2)
         self.hide_button = ctk.CTkButton(
             self.handle, text="×", width=22, height=18, corner_radius=7,
             command=self.hide_from_bar,
         )
-        self.hide_button.pack(side="right", padx=3, pady=1)
+        self.hide_button.pack(side="right", padx=3, pady=2)
         for widget in (self.handle, self.handle_label):
             widget.bind("<ButtonPress-1>", self.start_drag)
             widget.bind("<B1-Motion>", self.drag)
@@ -87,6 +94,11 @@ class CharacterQuickBar:
 
     def hide_from_bar(self):
         self.on_visibility_changed(False)
+
+    def toggle_orientation(self):
+        self.config.data["character_bar_vertical"] = self.var_vertical.get()
+        self.config.save()
+        self.rebuild()
 
     def position_window(self):
         saved = self.config.data.get("character_bar_position", [])
@@ -129,6 +141,9 @@ class CharacterQuickBar:
     def rebuild(self):
         if not self.theme:
             return
+        was_visible = self.window.winfo_viewable()
+        old_x, old_y = self.window.winfo_x(), self.window.winfo_y()
+        old_width, old_height = self.window.winfo_width(), self.window.winfo_height()
         for widget in self.content.winfo_children():
             widget.destroy()
         self.cards.clear()
@@ -145,14 +160,20 @@ class CharacterQuickBar:
         self.handle.configure(fg_color=panel_alt)
         self.handle_label.configure(text_color=title)
         self.hide_button.configure(fg_color=theme.get("clear", "#a3434d"), hover_color=theme.get("clear_hover", "#c95862"))
+        self.vertical_switch.configure(
+            progress_color=accent, button_color=border,
+            button_hover_color=theme.get("accent_hover", accent), text_color=title,
+        )
 
         if not self.accounts:
             ctk.CTkLabel(self.content, text="Aucun personnage détecté", text_color=muted).pack(padx=12, pady=7)
+            self.reanchor_after_resize(was_visible, old_x, old_y, old_width, old_height)
             return
 
         # Up to 14 characters keep the intended generous spacing.  Above that,
         # cards contract slightly so every detected account remains available.
         total = len(self.accounts)
+        is_vertical = self.var_vertical.get()
         card_width = 47 if total <= self.MAX_COMFORTABLE_CELLS else max(38, 658 // total)
         for account in self.accounts:
             card = ctk.CTkButton(
@@ -168,10 +189,28 @@ class CharacterQuickBar:
                 border_color=panel_alt,
                 command=lambda selected=account: self.on_character_selected(selected),
             )
-            card.pack(side="left", padx=2, pady=2)
+            card.pack(side="top" if is_vertical else "left", padx=2, pady=2)
             card.bind("<Enter>", lambda _event, button=card: button.configure(border_color=border))
             card.bind("<Leave>", lambda _event, button=card: button.configure(border_color=panel_alt))
             self.cards.append((card, account))
+        self.reanchor_after_resize(was_visible, old_x, old_y, old_width, old_height)
+
+    def reanchor_after_resize(self, was_visible, old_x, old_y, old_width, old_height):
+        """Keep the nearest screen edge fixed while the bar gains cards."""
+        self.window.update_idletasks()
+        if not was_visible:
+            return
+        new_width, new_height = self.window.winfo_width(), self.window.winfo_height()
+        screen_width, screen_height = self.window.winfo_screenwidth(), self.window.winfo_screenheight()
+        anchor_right = old_x + old_width / 2 > screen_width / 2
+        anchor_bottom = old_y + old_height / 2 > screen_height / 2
+        new_x = old_x + old_width - new_width if anchor_right else old_x
+        new_y = old_y + old_height - new_height if anchor_bottom else old_y
+        new_x = max(0, min(new_x, screen_width - new_width))
+        new_y = max(0, min(new_y, screen_height - new_height))
+        self.window.geometry(f"+{new_x}+{new_y}")
+        self.config.data["character_bar_position"] = [new_x, new_y]
+        self.config.save()
 
     def poll_active_window(self):
         try:
