@@ -136,8 +136,8 @@ class SettingsWindow(ctk.CTkToplevel):
         current_val = self.app.config.data.get("radial_menu_hotkey", "alt+left_click")
         btn_hk = ctk.CTkButton(frame_hk, text=current_val if current_val else self.app.i18n.t("none", "Aucun"), width=120, fg_color=input_color, hover_color=input_hover, command=lambda: self.parent.catch_key("radial_menu_hotkey", btn_hk, allow_mouse=True))
         btn_hk.pack(side="left", padx=5)
-        
-        self.parent.hotkey_btns["radial_menu_hotkey"] = btn_hk
+        self.btn_radial_hotkey = btn_hk
+        self.parent.hotkey_btns["radial_menu_hotkey"] = self.btn_radial_hotkey
 
         btn_x = ctk.CTkButton(frame_hk, text="✖", width=25, fg_color=clear_color, hover_color=clear_hover, command=lambda: self.parent.clear_key("radial_menu_hotkey", btn_hk))
         btn_x.pack(side="left", padx=5)
@@ -306,6 +306,16 @@ class SettingsWindow(ctk.CTkToplevel):
         if rep:
             # On utilise ta fonction de fermeture native qui nettoie tout correctement
             self.app.quit_app()
+
+    def destroy(self):
+        """Detach settings-only buttons before Tk destroys their window."""
+        for key, button in (
+            ("radial_menu_hotkey", getattr(self, "btn_radial_hotkey", None)),
+            ("wakfu_autofocus_hotkey", getattr(self, "btn_wakfu_autofocus_hotkey", None)),
+        ):
+            if self.parent.hotkey_btns.get(key) is button:
+                self.parent.hotkey_btns.pop(key, None)
+        super().destroy()
             
 
 
@@ -589,6 +599,16 @@ class OrganizerGUI:
         self.skin_cache = {} 
         self.apply_game_theme()
 
+    def prune_destroyed_hotkey_buttons(self):
+        """Forget widgets owned by a settings window already closed by Tk."""
+        for key, button in list(self.hotkey_btns.items()):
+            try:
+                is_alive = bool(button.winfo_exists())
+            except tk.TclError:
+                is_alive = False
+            if not is_alive:
+                self.hotkey_btns.pop(key, None)
+
     def refresh_module_theme_images(self):
         """Reload the selected engine's background and banner textures."""
         image_name = self.game_theme.get("background_image")
@@ -615,6 +635,7 @@ class OrganizerGUI:
 
     def apply_game_theme(self):
         """Apply the visual module associated with the selected game engine."""
+        self.prune_destroyed_hotkey_buttons()
         version = self.app.config.data.get("game_version", "Unity")
         theme = selected_game_theme(self.app.config.data)
         is_unity = version == "Unity"
@@ -698,6 +719,7 @@ class OrganizerGUI:
         self.update_version_selector(version)
 
     def apply_translations(self):
+        self.prune_destroyed_hotkey_buttons()
         none_label = self.app.i18n.t("none", "Aucun")
         self.root.title(self.app.i18n.t("app_title", "DOSOFT v1.1.1"))
         self.lbl_app_title.configure(text=self.app.i18n.t("app_title", "DOSOFT v1.1.1"))
@@ -1050,6 +1072,7 @@ class OrganizerGUI:
         except: pass
 
     def apply_single_hotkey(self, config_key, new_value, btn):
+        self.prune_destroyed_hotkey_buttons()
         self.release_modifiers() 
         
         if new_value: 
