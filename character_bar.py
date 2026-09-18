@@ -42,6 +42,7 @@ class CharacterQuickBar:
         self._transitioning = False
         self._pending_foreground = 0
         self._shape_sizes = {}
+        self._ghost_switch_locked = False
         self.debug_path = os.environ.get(
             "DOSOFT_QUICKBAR_DEBUG_LOG",
             os.path.join(os.path.dirname(os.path.abspath(config.filename)), "quickbar-debug.log"),
@@ -367,17 +368,43 @@ class CharacterQuickBar:
 
     def select_ghost_team(self, _event=None):
         """A click on the ghost surface is a simple Team 1/Team 2 swap."""
-        if self.ghost_team:
+        if self.begin_ghost_switch() and self.ghost_team:
             self.debug(f"clic fantôme: changement vers {self.ghost_team}")
             self.on_team_selected(self.ghost_team)
 
     def select_ghost_character(self, account):
         """A ghost portrait swaps the team, then focuses that exact account."""
-        if not self.ghost_team:
+        if not self.ghost_team or not self.begin_ghost_switch():
             return
         self.debug(f"clic portrait fantôme: {account.get('name', '')} vers {self.ghost_team}")
         self.on_team_selected(self.ghost_team)
         self.parent_root.after(35, lambda selected=account: self.on_character_selected(selected))
+
+    def begin_ghost_switch(self):
+        """Accept exactly one action for a physical mouse press.
+
+        Rebuilding an overlapped borderless window while Windows still routes
+        the original press can dispatch it again to the newly created ghost.
+        Keep the action locked until the button has truly been released.
+        """
+        if self._ghost_switch_locked:
+            self.debug("clic fantôme ignoré: verrou actif")
+            return False
+        self._ghost_switch_locked = True
+        self.ghost_window.withdraw()
+        self.parent_root.after(80, self.release_ghost_switch_after_mouse_up)
+        return True
+
+    def release_ghost_switch_after_mouse_up(self):
+        try:
+            mouse_is_down = ctypes.windll.user32.GetAsyncKeyState(0x01) < 0
+        except Exception:
+            mouse_is_down = False
+        if mouse_is_down:
+            self.parent_root.after(80, self.release_ghost_switch_after_mouse_up)
+            return
+        self._ghost_switch_locked = False
+        self.debug("verrou clic fantôme libéré")
 
     def fit_window_to_content(self, window, content):
         """Remove unused popup surface left by a previous larger layout."""
