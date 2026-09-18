@@ -41,6 +41,7 @@ class CharacterQuickBar:
         self._last_observed_foreground = None
         self._transitioning = False
         self._pending_foreground = 0
+        self._shape_sizes = {}
         self.debug_path = os.environ.get(
             "DOSOFT_QUICKBAR_DEBUG_LOG",
             os.path.join(os.path.dirname(os.path.abspath(config.filename)), "quickbar-debug.log"),
@@ -366,9 +367,10 @@ class CharacterQuickBar:
         content.update_idletasks()
         width = max(1, content.winfo_reqwidth() + 2)
         height = max(1, content.winfo_reqheight() + 2)
+        self._shape_sizes[window.winfo_id()] = (width, height)
         window.geometry(f"{width}x{height}+{window.winfo_x()}+{window.winfo_y()}")
         window.update_idletasks()
-        self.debug(f"taille {width}x{height} fenêtre={window.winfo_id()} contenu={content.winfo_width()}x{content.winfo_height()}")
+        self.debug(f"taille cible={width}x{height} fenêtre={window.winfo_id()} contenu={content.winfo_width()}x{content.winfo_height()}")
 
     def sync_ghost_bar(self):
         """Place the ghost under, and offset by half, the main quick bar."""
@@ -404,12 +406,14 @@ class CharacterQuickBar:
         """
         try:
             window.update_idletasks()
-            width, height = window.winfo_width(), window.winfo_height()
+            width, height = self._shape_sizes.get(
+                window.winfo_id(), (window.winfo_width(), window.winfo_height())
+            )
             if width < 2 or height < 2:
                 return
             region = ctypes.windll.gdi32.CreateRoundRectRgn(0, 0, width + 1, height + 1, 28, 28)
             result = ctypes.windll.user32.SetWindowRgn(window.winfo_id(), region, True)
-            self.debug(f"forme hwnd={window.winfo_id()} taille={width}x{height} résultat={result}")
+            self.debug(f"forme hwnd={window.winfo_id()} cible={width}x{height} actuelle={window.winfo_width()}x{window.winfo_height()} résultat={result}")
         except Exception:
             pass
 
