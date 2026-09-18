@@ -59,7 +59,7 @@ class CharacterQuickBar:
         try:
             self.ghost_window.configure(fg_color=self.transparent_color)
             self.ghost_window.attributes("-transparentcolor", self.transparent_color)
-            self.ghost_window.attributes("-alpha", 0.46)
+            self.ghost_window.attributes("-alpha", 0.58)
         except tk.TclError:
             pass
         self.ghost_window.resizable(False, False)
@@ -228,6 +228,9 @@ class CharacterQuickBar:
         self.outer.configure(fg_color=panel, border_color=border)
         is_vertical = self.var_vertical.get()
         controls = self.create_controls(self.content, theme)
+        # Keep the inactive team portraits exactly on the same axis as the
+        # active portraits, despite the latter's control strip.
+        self.ghost_control_space = 78
         cards_frame = ctk.CTkFrame(self.content, width=1, fg_color="transparent")
         if is_vertical:
             controls.pack(side="top", anchor="center", pady=(0, 3))
@@ -242,6 +245,8 @@ class CharacterQuickBar:
         if not self.accounts:
             ctk.CTkLabel(cards_frame, text="Aucun personnage détecté", text_color=muted).pack(padx=12, pady=7)
             self.reanchor_after_resize(was_visible, old_x, old_y, old_width, old_height)
+            self.window.update_idletasks()
+            self.ghost_control_space = controls.winfo_width()
             self.rebuild_ghost_bar()
             return
 
@@ -268,6 +273,8 @@ class CharacterQuickBar:
             card.bind("<Leave>", lambda _event, button=card: button.configure(border_color=panel_alt))
             self.cards.append((card, account))
         self.reanchor_after_resize(was_visible, old_x, old_y, old_width, old_height)
+        self.window.update_idletasks()
+        self.ghost_control_space = controls.winfo_width()
         self.rebuild_ghost_bar()
         self.update_card_states()
 
@@ -305,7 +312,19 @@ class CharacterQuickBar:
         )
         is_vertical = self.var_vertical.get()
         cards_frame = ctk.CTkFrame(self.ghost_content, width=1, fg_color="transparent")
-        cards_frame.pack()
+        spacer = ctk.CTkFrame(self.ghost_content, fg_color="transparent")
+        if is_vertical:
+            spacer.configure(width=1, height=49)
+            spacer.pack(side="top")
+            cards_frame.pack(side="top")
+        elif self.is_on_right_half():
+            spacer.configure(width=self.ghost_control_space, height=1)
+            spacer.pack(side="left")
+            cards_frame.pack(side="left")
+        else:
+            cards_frame.pack(side="left")
+            spacer.configure(width=self.ghost_control_space, height=1)
+            spacer.pack(side="left")
         total = len(self.ghost_accounts)
         card_width = 47 if total <= self.MAX_COMFORTABLE_CELLS else max(38, 658 // total)
         for account in self.ghost_accounts:

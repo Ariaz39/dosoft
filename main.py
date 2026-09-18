@@ -479,10 +479,16 @@ class OrganizerApp:
         self.gui.refresh_list(self.logic.all_accounts, self.config.data.get("game_version", "Unity"))
 
     def switch_team_mode(self):
-        """Toggle Team 1/Team 2 from the optional global Fast Switch bind."""
+        """Cycle ALL, Team 1 and Team 2 from the optional global bind."""
         current = self.config.data.get("current_mode", "ALL")
-        target = "Team 2" if current == "Team 1" else "Team 1"
-        self.gui.root.after(0, self.select_team_from_bar, target)
+        target = {"ALL": "Team 1", "Team 1": "Team 2", "Team 2": "ALL"}.get(current, "ALL")
+        self.gui.root.after(0, self.set_team_mode_from_shortcut, target)
+
+    def set_team_mode_from_shortcut(self, team):
+        self.logic.set_mode(team)
+        self.current_idx = 0
+        self.gui.combo_mode.set(team)
+        self.gui.refresh_list(self.logic.all_accounts, self.config.data.get("game_version", "Unity"))
 
     def start_wakfu_log_listener(self):
         log_path = os.path.join(
