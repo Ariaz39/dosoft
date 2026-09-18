@@ -685,6 +685,15 @@ class OrganizerGUI:
                 is_alive = False
             if not is_alive:
                 self.hotkey_btns.pop(key, None)
+        alive_clear_buttons = []
+        for button in self.hotkey_clear_buttons:
+            try:
+                is_alive = bool(button.winfo_exists())
+            except tk.TclError:
+                is_alive = False
+            if is_alive:
+                alive_clear_buttons.append(button)
+        self.hotkey_clear_buttons = alive_clear_buttons
 
     def refresh_module_theme_images(self):
         """Reload the selected engine's background and banner textures."""
