@@ -39,6 +39,8 @@ class CharacterQuickBar:
         self._drag_origin = None
         self._last_foreground = None
         self._last_observed_foreground = None
+        self._selected_hwnd = 0
+        self._color_transition_token = 0
         self._transitioning = False
         self._pending_foreground = 0
         self._shape_sizes = {}
@@ -299,6 +301,7 @@ class CharacterQuickBar:
         self.ghost_control_space = controls.winfo_width()
         self.rebuild_ghost_bar()
         self._last_foreground = None
+        self._selected_hwnd = 0
         self.update_card_states()
 
     def reanchor_after_resize(self, was_visible, old_x, old_y, old_width, old_height):
@@ -437,9 +440,22 @@ class CharacterQuickBar:
         self.ghost_window.geometry(f"+{int(ghost_x)}+{int(ghost_y)}")
         self.ghost_window.deiconify()
         self.apply_rounded_shape(self.ghost_window)
-        self.ghost_window.lift()
         self.window.lift()
         self.window.attributes("-topmost", True)
+        self.keep_ghost_below_main()
+        self.parent_root.after(10, self.keep_ghost_below_main)
+
+    def keep_ghost_below_main(self):
+        """Keep the translucent companion directly below the main module."""
+        try:
+            main_widget = self.window.winfo_id()
+            ghost_widget = self.ghost_window.winfo_id()
+            main_root = ctypes.windll.user32.GetAncestor(main_widget, 2) or main_widget
+            ghost_root = ctypes.windll.user32.GetAncestor(ghost_widget, 2) or ghost_widget
+            flags = 0x0001 | 0x0002 | 0x0010  # NOSIZE | NOMOVE | NOACTIVATE
+            ctypes.windll.user32.SetWindowPos(main_root, ghost_root, 0, 0, 0, 0, flags)
+        except Exception:
+            pass
 
     def apply_rounded_shape(self, window):
         """Clip a borderless Windows popup to its rounded module outline.
@@ -482,10 +498,66 @@ class CharacterQuickBar:
         self._last_foreground = foreground
         self._pending_foreground = foreground
         self.debug(f"focus jeu hwnd={foreground}; visible={self.window.winfo_viewable()}")
-        if self.window.winfo_viewable() and not self._transitioning:
-            self.soft_refresh_cards()
+        previous = self._selected_hwnd
+        self._selected_hwnd = foreground
+        if self.window.winfo_viewable():
+            self.animate_card_selection(previous, foreground)
+        else:
+            self.apply_card_states(foreground)
+
+    @staticmethod
+    def blend_color(start, end, amount):
+        """Mix two #RRGGBB colours for a lightweight selection fade."""
+        start = start.lstrip("#")
+        end = end.lstrip("#")
+        try:
+            values = [
+                round(int(start[i:i + 2], 16) + (int(end[i:i + 2], 16) - int(start[i:i + 2], 16)) * amount)
+                for i in (0, 2, 4)
+            ]
+            return "#" + "".join(f"{value:02x}" for value in values)
+        except ValueError:
+            return end if amount >= 0.5 else start
+
+    def animate_card_selection(self, previous_hwnd, selected_hwnd):
+        """Fade only portrait colours; the bars themselves never blink."""
+        self._color_transition_token += 1
+        token = self._color_transition_token
+        self.debug(f"couleur: transition {previous_hwnd} -> {selected_hwnd}")
+        for step in range(5):
+            self.parent_root.after(
+                step * 28,
+                lambda progress=step / 4, current=token: self.apply_card_transition(
+                    previous_hwnd, selected_hwnd, progress, current
+                ),
+            )
+
+    def apply_card_transition(self, previous_hwnd, selected_hwnd, progress, token):
+        if token != self._color_transition_token:
             return
-        self.apply_card_states(foreground)
+        theme = self.theme
+        panel_alt = theme.get("panel_alt", "#34495e")
+        accent = theme.get("accent", "#2f80c3")
+        border = theme.get("border", "#78b9e8")
+        leader_name = self.config.data.get("leader_name", "")
+        gold = "#e5bd5d"
+        for button, account in self.cards:
+            hwnd = account.get("hwnd")
+            if hwnd == selected_hwnd:
+                color = self.blend_color(panel_alt, accent, progress)
+                outline = self.blend_color(panel_alt, border, progress)
+            elif hwnd == previous_hwnd:
+                color = self.blend_color(accent, panel_alt, progress)
+                outline = self.blend_color(border, panel_alt, progress)
+            else:
+                color = panel_alt
+                outline = panel_alt
+            is_leader = account.get("name") == leader_name
+            button.configure(
+                fg_color=color,
+                border_color=gold if is_leader else outline,
+                border_width=2 if is_leader or hwnd in (previous_hwnd, selected_hwnd) else 1,
+            )
 
     def apply_card_states(self, foreground):
         """Paint card state only once per actual foreground-window change."""
