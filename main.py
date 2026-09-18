@@ -1,5 +1,16 @@
 import os
 import sys
+
+# The beta build uses a portable Tcl/Tk runtime.  When frozen, configure it
+# before importing tkinter so the packaged executable is self-contained.
+if getattr(sys, "frozen", False):
+    _bundle_dir = getattr(sys, "_MEIPASS", "")
+    _tcl_dir = os.path.join(_bundle_dir, "tcl8.6")
+    _tk_dir = os.path.join(_bundle_dir, "tk8.6")
+    if os.path.isdir(_tcl_dir) and os.path.isdir(_tk_dir):
+        os.environ.setdefault("TCL_LIBRARY", _tcl_dir)
+        os.environ.setdefault("TK_LIBRARY", _tk_dir)
+
 import ctypes
 import threading
 import keyboard

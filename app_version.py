@@ -2,7 +2,7 @@ import json
 import os
 import sys
 
-APP_VERSION = "1.2.2"
+APP_VERSION = "1.3.1"
 
 
 def _candidate_paths(filename: str) -> list[str]:
@@ -38,4 +38,4 @@ def get_current_version() -> str:
 
 
 CURRENT_VERSION = get_current_version()
-APP_TITLE = os.environ.get("DOSOFT_APP_TITLE", f"DOSOFT v{CURRENT_VERSION}")
+APP_TITLE = os.environ.get("DOSOFT_APP_TITLE", f"BETA DOSOFT {CURRENT_VERSION}")

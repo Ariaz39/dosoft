@@ -3,9 +3,9 @@
 ;  Prerequis : Inno Setup 6+
 ; ============================================================
 
-#define AppName      "Dosoft"
+#define AppName      "DOSOFT BETA"
 #define AppPublisher "Dosoft"
-#define AppExeName   "Dosoft.exe"
+#define AppExeName   "Dosoft_BETA.exe"
 #define SourceDir    "dist"
 #define VersionFile  "version.json"
 #define VersionFileHandle FileOpen(VersionFile)
@@ -27,7 +27,7 @@
 #endif
 
 [Setup]
-AppId={{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
+AppId={{C34D9D8E-1B7A-45D4-93D2-7A522E4A5311}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher={#AppPublisher}
@@ -39,7 +39,7 @@ DisableProgramGroupPage=yes
 
 ; --- Sortie de l'installeur ---
 OutputDir=installer_output
-OutputBaseFilename=Dosoft_Setup_v{#AppVersion}
+OutputBaseFilename=Dosoft_BETA_Setup_v{#AppVersion}
 
 ; --- Apparence ---
 SetupIconFile=logo.ico
@@ -99,7 +99,7 @@ var
   sUnInstallString: String;
 begin
   // Chemin de désinstallation écrit en dur pour éviter les bugs d'accolades avec ExpandConstant
-  sUnInstPath := 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}_is1';
+  sUnInstPath := 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{C34D9D8E-1B7A-45D4-93D2-7A522E4A5311}_is1';
   sUnInstallString := '';
   
   if not RegQueryStringValue(HKLM, sUnInstPath, 'UninstallString', sUnInstallString) then

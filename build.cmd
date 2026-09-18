@@ -5,7 +5,7 @@
 :: ============================================================
 setlocal enabledelayedexpansion
 
-set APP_NAME=Dosoft
+set APP_NAME=Dosoft_BETA
 set MAIN_FILE=main.py
 set ICON_FILE=logo.ico
 set OUT_DIR=dist
@@ -40,6 +40,9 @@ python -m PyInstaller ^
     --add-data="sounds;sounds" ^
     --add-data="resources\\i18n;resources\\i18n" ^
     --add-data="resources\\keyboards;resources\\keyboards" ^
+    --add-data="resources\\skin;resources\\skin" ^
+    --add-data="..\\python313-tcl\\tcl8.6;tcl8.6" ^
+    --add-data="..\\python313-tcl\\tk8.6;tk8.6" ^
     --add-data="logo.ico;." ^
     --add-data="version.json;." ^
     --hidden-import=customtkinter ^
