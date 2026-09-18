@@ -516,7 +516,12 @@ class CharacterQuickBar:
             main_root = ctypes.windll.user32.GetAncestor(main_widget, 2) or main_widget
             ghost_root = ctypes.windll.user32.GetAncestor(ghost_widget, 2) or ghost_widget
             flags = 0x0001 | 0x0002 | 0x0010  # NOSIZE | NOMOVE | NOACTIVATE
-            ctypes.windll.user32.SetWindowPos(main_root, ghost_root, 0, 0, 0, 0, flags)
+            # Reassert both in the topmost band, always placing the opaque
+            # main popup last.  This is more reliable than relative stacking
+            # across the two Tk native root HWNDs.
+            ctypes.windll.user32.SetWindowPos(ghost_root, -1, 0, 0, 0, 0, flags)
+            ctypes.windll.user32.SetWindowPos(main_root, -1, 0, 0, 0, 0, flags)
+            self.debug(f"z-order: fantôme={ghost_root} < principal={main_root}")
         except Exception:
             pass
 
