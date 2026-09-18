@@ -57,10 +57,13 @@ WAKFU_THEMES = {
 
 RETRO_THEMES = {
     "1": {
-        "background": "#756c50", "panel": "#494536", "panel_alt": "#665e45",
-        "accent": "#c97625", "accent_hover": "#e28d35", "border": "#e4d18e",
-        "title": "#f4e6b7", "muted": "#d5cba7", "banner": "#5a513c",
-        "toast": "#544b37", "clear": "#9f4230", "clear_hover": "#c65a40",
+        # Même hiérarchie que le thème WAKFU : fond texturé respirant, cartes
+        # sombres, bordures dorées et boutons orange. Le parchemin ne sert plus
+        # de gros aplat clair derrière les modules.
+        "background": "#201d17", "panel": "#302d24", "panel_alt": "#49412f",
+        "accent": "#bb6a24", "accent_hover": "#dc8432", "border": "#d9bd79",
+        "title": "#f2e4bb", "muted": "#d4c69f", "banner": "#3a3427",
+        "toast": "#40392a", "clear": "#9b4030", "clear_hover": "#c25740",
         "background_image": "retro_parchment_texture.png",
         "focus_icon": "focus", "volume_icon": "volume",
         "follow_icon": "follow", "group_icon": "groupe",
