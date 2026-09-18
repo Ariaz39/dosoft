@@ -90,7 +90,9 @@ class CharacterQuickBar:
         mode = self.config.data.get("current_mode", "ALL")
         if mode in ("Team 1", "Team 2"):
             self.accounts = [account for account in active_accounts if account.get("team") == mode]
-            self.ghost_accounts = [account for account in active_accounts if account.get("team") != mode]
+            self.ghost_accounts = [] if self.config.data.get("fast_switch_team_disabled", False) else [
+                account for account in active_accounts if account.get("team") != mode
+            ]
             self.ghost_team = self.ghost_accounts[0].get("team") if self.ghost_accounts else None
         else:
             self.accounts = active_accounts
@@ -329,13 +331,13 @@ class CharacterQuickBar:
         main_w, main_h = self.window.winfo_width(), self.window.winfo_height()
         ghost_w, ghost_h = self.ghost_window.winfo_width(), self.ghost_window.winfo_height()
         if self.var_vertical.get():
-            below = main_y + main_h / 2 < self.window.winfo_screenheight() / 2
-            ghost_x = main_x
-            ghost_y = main_y + main_h // 2 if below else main_y - ghost_h + main_h // 2
-        else:
             to_right = main_x + main_w / 2 < self.window.winfo_screenwidth() / 2
             ghost_x = main_x + main_w // 2 if to_right else main_x - ghost_w + main_w // 2
             ghost_y = main_y
+        else:
+            below = main_y + main_h / 2 < self.window.winfo_screenheight() / 2
+            ghost_x = main_x
+            ghost_y = main_y + main_h // 2 if below else main_y - ghost_h + main_h // 2
         self.ghost_window.geometry(f"+{int(ghost_x)}+{int(ghost_y)}")
         self.ghost_window.deiconify()
         self.ghost_window.lift()

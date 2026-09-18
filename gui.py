@@ -168,6 +168,47 @@ class SettingsWindow(ctk.CTkToplevel):
         )
         self.btn_wakfu_autofocus_clear.pack(side="right", padx=3, pady=8)
 
+        # Fast Switch TEAM only controls the translucent companion bar; the
+        # normal Team 1 / Team 2 selector always remains available.
+        self.frame_fast_switch_team = ctk.CTkFrame(self.scroll_container)
+        self.frame_fast_switch_team.pack(fill="x", padx=10, pady=5)
+        self.lbl_fast_switch_team = ctk.CTkLabel(self.frame_fast_switch_team, text="Fast Switch TEAM")
+        self.lbl_fast_switch_team.pack(side="left", padx=8, pady=8)
+        self.var_fast_switch_team_disabled = ctk.BooleanVar(
+            value=self.app.config.data.get("fast_switch_team_disabled", False)
+        )
+        self.sw_fast_switch_team_disabled = ctk.CTkSwitch(
+            self.frame_fast_switch_team,
+            text="Désactiver",
+            variable=self.var_fast_switch_team_disabled,
+            command=self.save_settings,
+            width=96,
+        )
+        self.sw_fast_switch_team_disabled.pack(side="right", padx=(3, 8), pady=8)
+
+        self.frame_team_switch_hotkey = ctk.CTkFrame(self.scroll_container)
+        self.frame_team_switch_hotkey.pack(fill="x", padx=10, pady=5)
+        self.lbl_team_switch_hotkey = ctk.CTkLabel(
+            self.frame_team_switch_hotkey, text="Raccourci switch de mode TEAM"
+        )
+        self.lbl_team_switch_hotkey.pack(side="left", padx=8, pady=8)
+        current_team_switch_hotkey = self.app.config.data.get("team_switch_key", "")
+        self.btn_team_switch_hotkey = ctk.CTkButton(
+            self.frame_team_switch_hotkey,
+            text=current_team_switch_hotkey or self.app.i18n.t("none", "Aucun"),
+            width=100, fg_color=input_color, hover_color=input_hover,
+            command=lambda: self.parent.catch_key("team_switch_key", self.btn_team_switch_hotkey),
+        )
+        self.btn_team_switch_hotkey.pack(side="right", padx=(3, 8), pady=8)
+        self.parent.hotkey_btns["team_switch_key"] = self.btn_team_switch_hotkey
+        self.btn_team_switch_clear = ctk.CTkButton(
+            self.frame_team_switch_hotkey, text="✖", width=25,
+            fg_color=clear_color, hover_color=clear_hover,
+            command=lambda: self.parent.clear_key("team_switch_key", self.btn_team_switch_hotkey),
+        )
+        self.btn_team_switch_clear.pack(side="right", padx=3, pady=8)
+        self.parent.hotkey_clear_buttons.append(self.btn_team_switch_clear)
+
         self.var_wakfu_theme = ctk.StringVar(value=str(self.app.config.data.get("wakfu_theme", "1")))
         self.var_unity_theme = ctk.StringVar(value=str(self.app.config.data.get("unity_theme", "1")))
         self.var_retro_theme = ctk.StringVar(value=str(self.app.config.data.get("retro_theme", "1")))
@@ -272,10 +313,14 @@ class SettingsWindow(ctk.CTkToplevel):
         self.app.config.data["wakfu_theme"] = self.var_wakfu_theme.get()
         self.app.config.data["unity_theme"] = self.var_unity_theme.get()
         self.app.config.data["retro_theme"] = self.var_retro_theme.get()
+        self.app.config.data["fast_switch_team_disabled"] = self.var_fast_switch_team_disabled.get()
         self.app.i18n.set_locale(self.var_language.get())
         self.app.keymaps.set_layout(self.var_keyboard_layout.get())
         self.app.setup_hotkeys()
         self.app.config.save()
+        bar = getattr(self.app, "character_bar", None)
+        if bar:
+            bar.update_accounts(self.app.logic.all_accounts, self.app.config.data.get("game_version", "Unity"))
         self.parent.apply_game_theme()
         self.refresh_theme_selector_states()
         self.parent.apply_translations()
@@ -312,6 +357,7 @@ class SettingsWindow(ctk.CTkToplevel):
         for key, button in (
             ("radial_menu_hotkey", getattr(self, "btn_radial_hotkey", None)),
             ("wakfu_autofocus_hotkey", getattr(self, "btn_wakfu_autofocus_hotkey", None)),
+            ("team_switch_key", getattr(self, "btn_team_switch_hotkey", None)),
         ):
             if self.parent.hotkey_btns.get(key) is button:
                 self.parent.hotkey_btns.pop(key, None)
@@ -325,6 +371,9 @@ class SettingsWindow(ctk.CTkToplevel):
         self.sw_radial.configure(text=self.app.i18n.t("settings_radial_enable", "Activer la roue"))
         self.lbl_hk.configure(text=self.app.i18n.t("settings_hotkey", "Raccourci :"))
         self.lbl_wakfu_autofocus.configure(text="Auto-Focus WAKFU")
+        self.lbl_fast_switch_team.configure(text="Fast Switch TEAM")
+        self.sw_fast_switch_team_disabled.configure(text="Désactiver")
+        self.lbl_team_switch_hotkey.configure(text="Raccourci switch de mode TEAM")
         self.lbl_wakfu_theme.configure(text="Thème WAKFU")
         self.lbl_unity_theme.configure(text="Thème UNITY")
         self.lbl_retro_theme.configure(text="Thème Rétro")

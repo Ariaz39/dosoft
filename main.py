@@ -422,6 +422,8 @@ class OrganizerApp:
             if cfg.get('quit_key'):    self.register_action(cfg['quit_key'],   self.quit_app) 
             if cfg.get('wakfu_autofocus_hotkey'):
                 self.register_action(cfg['wakfu_autofocus_hotkey'], self.toggle_wakfu_autofocus_combat)
+            if not cfg.get("fast_switch_team_disabled", False) and cfg.get("team_switch_key"):
+                self.register_action(cfg["team_switch_key"], self.switch_team_mode)
             keyboard.hook(self.global_hook_listener)
         except Exception: pass
 
@@ -467,12 +469,20 @@ class OrganizerApp:
 
     def select_team_from_bar(self, team):
         """Use the quick-bar ghost tab to switch to the other active team."""
+        if self.config.data.get("fast_switch_team_disabled", False):
+            return
         if team not in ("Team 1", "Team 2"):
             return
         self.logic.set_mode(team)
         self.current_idx = 0
         self.gui.combo_mode.set(team)
         self.gui.refresh_list(self.logic.all_accounts, self.config.data.get("game_version", "Unity"))
+
+    def switch_team_mode(self):
+        """Toggle Team 1/Team 2 from the optional global Fast Switch bind."""
+        current = self.config.data.get("current_mode", "ALL")
+        target = "Team 2" if current == "Team 1" else "Team 1"
+        self.gui.root.after(0, self.select_team_from_bar, target)
 
     def start_wakfu_log_listener(self):
         log_path = os.path.join(

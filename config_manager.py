@@ -21,6 +21,8 @@ class Config:
             "character_bar_visible": False,
             "character_bar_position": [],
             "character_bar_vertical": False,
+            "fast_switch_team_disabled": False,
+            "team_switch_key": "",
             "volume_level": 50,
             "tutorial_done": False,
             "radial_menu_active": True,
