@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import os
 import tkinter as tk
 
 import customtkinter as ctk
 import win32gui
 from PIL import Image
 
-from resource_paths import skin_path
+from resource_paths import resource_path, skin_path
 
 
 class CharacterQuickBar:
@@ -46,22 +47,19 @@ class CharacterQuickBar:
         self.handle = ctk.CTkFrame(self.outer, height=25, corner_radius=10)
         self.handle.pack(fill="x", padx=5, pady=(5, 2))
         self.handle.pack_propagate(False)
-        self.handle_label = ctk.CTkLabel(
-            self.handle, text="⠿  Personnages", font=ctk.CTkFont(size=11, weight="bold")
+        self.cross_image = self.load_menu_icon("croix.png")
+        self.up_image = self.load_menu_icon("up.png")
+        self.orientation_button = ctk.CTkButton(
+            self.handle, text="", image=self.up_image, width=24, height=20,
+            corner_radius=7, command=self.toggle_orientation,
         )
-        self.handle_label.pack(side="left", padx=(9, 2))
-        self.vertical_switch = ctk.CTkSwitch(
-            self.handle, text="Vertical", variable=self.var_vertical,
-            width=74, height=18, font=ctk.CTkFont(size=10),
-            command=self.toggle_orientation,
-        )
-        self.vertical_switch.pack(side="right", padx=(2, 3), pady=2)
+        self.orientation_button.pack(side="right", padx=(2, 3), pady=2)
         self.hide_button = ctk.CTkButton(
-            self.handle, text="×", width=22, height=18, corner_radius=7,
+            self.handle, text="", image=self.cross_image, width=24, height=20, corner_radius=7,
             command=self.hide_from_bar,
         )
         self.hide_button.pack(side="right", padx=3, pady=2)
-        for widget in (self.handle, self.handle_label):
+        for widget in (self.handle,):
             widget.bind("<ButtonPress-1>", self.start_drag)
             widget.bind("<B1-Motion>", self.drag)
             widget.bind("<ButtonRelease-1>", self.end_drag)
@@ -100,6 +98,15 @@ class CharacterQuickBar:
         self.config.save()
         self.rebuild()
 
+    @staticmethod
+    def load_menu_icon(filename):
+        path = resource_path("resources", "skin", "icone menu", filename)
+        try:
+            image = Image.open(path)
+            return ctk.CTkImage(light_image=image, dark_image=image, size=(14, 14))
+        except Exception:
+            return None
+
     def position_window(self):
         saved = self.config.data.get("character_bar_position", [])
         if isinstance(saved, list) and len(saved) == 2:
@@ -125,9 +132,11 @@ class CharacterQuickBar:
         self.config.save()
 
     def image_for(self, class_name):
+        class_filename = (class_name or "Inconnu").removesuffix("_retro").lower()
+        quick_icon = resource_path("resources", "skin", "icone menu", f"eco_{class_filename}.png")
         engine = "retro" if self.engine == "Rétro" else "wakfu" if self.engine == "Wakfu" else "unity"
-        path = skin_path(class_name, engine=engine)
-        cache_key = f"{engine}:{path}"
+        path = quick_icon if os.path.exists(quick_icon) else skin_path(class_name, engine=engine)
+        cache_key = f"quickbar:{path}"
         if cache_key in self.image_cache:
             return self.image_cache[cache_key]
         try:
@@ -158,11 +167,12 @@ class CharacterQuickBar:
         self.window.configure(fg_color=theme.get("background", panel))
         self.outer.configure(fg_color=panel, border_color=border)
         self.handle.configure(fg_color=panel_alt)
-        self.handle_label.configure(text_color=title)
         self.hide_button.configure(fg_color=theme.get("clear", "#a3434d"), hover_color=theme.get("clear_hover", "#c95862"))
-        self.vertical_switch.configure(
-            progress_color=accent, button_color=border,
-            button_hover_color=theme.get("accent_hover", accent), text_color=title,
+        self.orientation_button.configure(
+            fg_color=accent if self.var_vertical.get() else panel,
+            hover_color=theme.get("accent_hover", accent),
+            border_width=1 if self.var_vertical.get() else 0,
+            border_color=border if self.var_vertical.get() else panel,
         )
 
         if not self.accounts:
