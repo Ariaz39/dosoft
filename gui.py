@@ -447,7 +447,10 @@ class OrganizerGUI:
         self.version_buttons = {}
         self.version_images = {}
         for version, icon_name in (("Unity", "unity"), ("Rétro", "retro"), ("Wakfu", "wakfu")):
-            self.version_images[version] = self.load_selector_image(icon_name)
+            # Le médaillon Rétro est plus rond : une largeur légèrement réduite
+            # préserve sa silhouette au lieu de l'écraser dans le carré commun.
+            icon_size = (24, 28) if version == "Rétro" else (28, 28)
+            self.version_images[version] = self.load_selector_image(icon_name, size=icon_size)
             button = ctk.CTkButton(
                 self.version_selector,
                 text="",
