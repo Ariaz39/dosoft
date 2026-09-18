@@ -27,10 +27,17 @@ def skin_path(class_name: str, *, wheel: bool = False, engine: str | None = None
         unity_skin = resource_path("resources", "skin", "unity", f"{filename}.png")
         if os.path.exists(unity_skin):
             return unity_skin
+        return resource_path("resources", "skin", "menu.png")
     elif engine == "wakfu":
         wakfu_skin = resource_path("resources", "skin", "wakfu", f"{filename}_tete.png")
         if os.path.exists(wakfu_skin):
             return wakfu_skin
+        return resource_path("resources", "skin", "menu.png")
+    elif engine == "retro":
+        retro_skin = resource_path("resources", "skin", "retro", f"{filename}_retro.png")
+        if os.path.exists(retro_skin):
+            return retro_skin
+        return resource_path("resources", "skin", "menu.png")
 
     if wheel:
         filename = f"{filename}_wheel"
