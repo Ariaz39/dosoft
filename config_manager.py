@@ -18,6 +18,8 @@ class Config:
             "classes": {},
             "custom_order": [],
             "show_tooltips": True,
+            "character_bar_visible": False,
+            "character_bar_position": [],
             "volume_level": 50,
             "tutorial_done": False,
             "radial_menu_active": True,

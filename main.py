@@ -42,6 +42,7 @@ from wakfu_turn_visual_watcher import WakfuTurnVisualWatcher
 from wakfu_debug import write_wakfu_debug
 from wakfu_autofocus_overlay import WakfuAutofocusOverlay
 from resource_paths import skin_path
+from character_bar import CharacterQuickBar
 
 
 def try_load_windows_layout(layout_name):
@@ -66,6 +67,15 @@ class OrganizerApp:
         try_load_windows_layout(self.config.data.get("keyboard_layout", "azerty_fr"))
         self.logic = DofusLogic(self.config)
         self.gui = OrganizerGUI(self)
+        self.character_bar = CharacterQuickBar(
+            self.gui.root,
+            self.config,
+            self.focus_character_from_bar,
+            self.set_character_bar_visible,
+        )
+        self.character_bar.update_theme(
+            self.gui.game_theme, self.config.data.get("game_version", "Unity")
+        )
         self.current_idx = 0
         self.hotkey_actions = {} 
         self.mouse_hotkeys = {}
@@ -429,6 +439,28 @@ class OrganizerApp:
         self.pending_wakfu_focus = None
         self.logic.all_accounts = []
         self.logic.leader_hwnd = None
+        bar = getattr(self, "character_bar", None)
+        if bar:
+            bar.update_accounts([], version)
+
+    def set_character_bar_visible(self, visible):
+        self.config.data["character_bar_visible"] = bool(visible)
+        self.config.save()
+        bar = getattr(self, "character_bar", None)
+        if bar:
+            bar.set_visible(bool(visible))
+        gui = getattr(self, "gui", None)
+        if gui and hasattr(gui, "var_character_bar"):
+            gui.var_character_bar.set(bool(visible))
+
+    def focus_character_from_bar(self, account):
+        """Focus a clicked quick-bar character and preserve cycle order."""
+        self.logic.focus_window(account.get("hwnd"))
+        cycle_list = self.logic.get_cycle_list()
+        for index, candidate in enumerate(cycle_list):
+            if candidate.get("hwnd") == account.get("hwnd"):
+                self.current_idx = index
+                break
 
     def start_wakfu_log_listener(self):
         log_path = os.path.join(

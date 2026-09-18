@@ -509,6 +509,13 @@ class OrganizerGUI:
         self.slider_volume = ctk.CTkSlider(self.frame_actions, from_=0, to=100, command=self.on_volume_change, width=150)
         self.slider_volume.set(cfg.get("volume_level", 50))
         self.slider_volume.pack(side="left", padx=10, pady=10)
+
+        self.var_character_bar = ctk.BooleanVar(value=cfg.get("character_bar_visible", False))
+        self.sw_character_bar = ctk.CTkSwitch(
+            self.frame_actions, text="Barre persos", variable=self.var_character_bar,
+            command=self.toggle_character_bar, width=112,
+        )
+        self.sw_character_bar.pack(side="left", padx=(8, 4))
         
         self.btn_close_all = ctk.CTkButton(self.frame_actions, text=self.app.i18n.t("btn_close_team", "Fermer Team"), fg_color="#c0392b", hover_color="#e74c3c", command=self.close_all_and_refresh, width=120)
         self.btn_close_all.pack(side="right", padx=10)
@@ -686,6 +693,10 @@ class OrganizerGUI:
         )
         self.update_autofocus_button()
         self.slider_volume.configure(progress_color=theme["accent"], button_color=theme["border"], button_hover_color=theme["title"])
+        self.sw_character_bar.configure(
+            progress_color=theme["accent"], button_color=theme["border"],
+            button_hover_color=theme["accent_hover"], text_color=theme["title"],
+        )
         self.frame_fast_command.configure(
             fg_color=theme["panel"], border_width=1 if has_module_theme else 0,
             border_color=theme["border"] if has_module_theme else theme["panel"],
@@ -716,6 +727,9 @@ class OrganizerGUI:
         else:
             self.frame_module_banner.pack_forget()
             self.lbl_wakfu_background.place_forget()
+        bar = getattr(self.app, "character_bar", None)
+        if bar:
+            bar.update_theme(theme, version)
         self.update_version_selector(version)
 
     def apply_translations(self):
@@ -731,6 +745,7 @@ class OrganizerGUI:
         self.lbl_versions.configure(text=self.app.i18n.t("label_versions", "Versions :"))
         self.lbl_keyboard_shortcuts.configure(text=self.app.i18n.t("label_keyboard_shortcuts", "Raccourcis Clavier"))
         self.lbl_volume.configure(text="")
+        self.sw_character_bar.configure(text="Barre persos")
         self.btn_close_all.configure(text=self.app.i18n.t("btn_close_team", "Fermer Team"))
         self.btn_reset.configure(text=self.app.i18n.t("btn_reset_settings", "Reset Settings"))
         self.lbl_accounts.configure(text=self.app.i18n.t("label_active_accounts", "Comptes actifs"))
@@ -835,6 +850,9 @@ class OrganizerGUI:
         # Ignore a delayed scan whose source engine was changed in the meantime.
         if source_version and source_version != self.app.config.data.get("game_version", "Unity"):
             return
+        bar = getattr(self.app, "character_bar", None)
+        if bar:
+            bar.update_accounts(accounts, self.app.config.data.get("game_version", "Unity"))
         self.update_fast_command(accounts)
         for widget in self.scroll_frame.winfo_children(): widget.destroy()
         leader_name = self.app.config.data.get("leader_name", "")
@@ -942,6 +960,9 @@ class OrganizerGUI:
         )
         
     def on_volume_change(self, value): self.app.update_volume(int(value))
+
+    def toggle_character_bar(self):
+        self.app.set_character_bar_visible(self.var_character_bar.get())
     
     def create_hotkey_row(self, parent, label_key, config_key, row, col_offset, tooltip_key=""):
         lbl = ctk.CTkLabel(parent, text=f"{self.app.i18n.t(label_key, label_key)}:")
