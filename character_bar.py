@@ -34,7 +34,6 @@ class CharacterQuickBar:
         self.theme = {}
         self.image_cache = {}
         self.cards = []
-        self.ghost_button = None
         self._drag_origin = None
         self.var_vertical = ctk.BooleanVar(value=config.data.get("character_bar_vertical", False))
 
@@ -51,15 +50,33 @@ class CharacterQuickBar:
         self.window.resizable(False, False)
         self.window.protocol("WM_DELETE_WINDOW", self.hide_from_bar)
 
+        # This is a complete, deliberately faded second bar.  It stays behind
+        # the primary bar and serves as one-click access to the other team.
+        self.ghost_window = ctk.CTkToplevel(parent_root)
+        self.ghost_window.withdraw()
+        self.ghost_window.overrideredirect(True)
+        self.ghost_window.attributes("-topmost", True)
+        try:
+            self.ghost_window.configure(fg_color=self.transparent_color)
+            self.ghost_window.attributes("-transparentcolor", self.transparent_color)
+            self.ghost_window.attributes("-alpha", 0.46)
+        except tk.TclError:
+            pass
+        self.ghost_window.resizable(False, False)
+
         # Default CustomTkinter frames request 200 px.  A tiny base width lets
         # the vertical layout contract to the portraits instead.
         self.outer = ctk.CTkFrame(self.window, width=1, corner_radius=14, border_width=1)
         self.outer.pack(padx=1, pady=1)
+        self.ghost_outer = ctk.CTkFrame(self.ghost_window, width=1, corner_radius=14, border_width=1)
+        self.ghost_outer.pack(padx=1, pady=1)
 
         self.cross_image = self.load_menu_icon("croix.png")
         self.up_image = self.load_menu_icon("up.png")
         self.content = ctk.CTkFrame(self.outer, width=1, fg_color="transparent")
         self.content.pack(padx=5, pady=5)
+        self.ghost_content = ctk.CTkFrame(self.ghost_outer, width=1, fg_color="transparent")
+        self.ghost_content.pack(padx=5, pady=5)
         self.parent_root.after(250, self.poll_active_window)
 
     def update_theme(self, theme, engine):
@@ -86,13 +103,14 @@ class CharacterQuickBar:
     def set_visible(self, visible):
         if not visible:
             self.window.withdraw()
+            self.ghost_window.withdraw()
             return
         self.rebuild()
         self.position_window()
         self.window.deiconify()
         self.window.lift()
         self.window.attributes("-topmost", True)
-        self.place_ghost_tab()
+        self.sync_ghost_bar()
 
     def hide_from_bar(self):
         self.on_visibility_changed(False)
@@ -130,11 +148,13 @@ class CharacterQuickBar:
             return
         mouse_x, mouse_y, window_x, window_y = self._drag_origin
         self.window.geometry(f"+{window_x + event.x_root - mouse_x}+{window_y + event.y_root - mouse_y}")
+        self.sync_ghost_bar()
 
     def end_drag(self, _event):
         self._drag_origin = None
         self.config.data["character_bar_position"] = [self.window.winfo_x(), self.window.winfo_y()]
         self.config.save()
+        self.sync_ghost_bar()
 
     def image_for(self, class_name):
         class_filename = (class_name or "Inconnu").removesuffix("_retro").lower()
@@ -204,9 +224,6 @@ class CharacterQuickBar:
         title = theme.get("title", "#ecf0f1")
         muted = theme.get("muted", "#b7c9d6")
         self.outer.configure(fg_color=panel, border_color=border)
-        if self.ghost_button:
-            self.ghost_button.destroy()
-            self.ghost_button = None
         is_vertical = self.var_vertical.get()
         controls = self.create_controls(self.content, theme)
         cards_frame = ctk.CTkFrame(self.content, width=1, fg_color="transparent")
@@ -223,6 +240,7 @@ class CharacterQuickBar:
         if not self.accounts:
             ctk.CTkLabel(cards_frame, text="Aucun personnage détecté", text_color=muted).pack(padx=12, pady=7)
             self.reanchor_after_resize(was_visible, old_x, old_y, old_width, old_height)
+            self.rebuild_ghost_bar()
             return
 
         # Up to 14 characters keep the intended generous spacing.  Above that,
@@ -248,6 +266,7 @@ class CharacterQuickBar:
             card.bind("<Leave>", lambda _event, button=card: button.configure(border_color=panel_alt))
             self.cards.append((card, account))
         self.reanchor_after_resize(was_visible, old_x, old_y, old_width, old_height)
+        self.rebuild_ghost_bar()
         self.update_card_states()
 
     def reanchor_after_resize(self, was_visible, old_x, old_y, old_width, old_height):
@@ -266,32 +285,62 @@ class CharacterQuickBar:
         self.window.geometry(f"+{new_x}+{new_y}")
         self.config.data["character_bar_position"] = [new_x, new_y]
         self.config.save()
-        self.place_ghost_tab()
+        self.sync_ghost_bar()
 
-    def place_ghost_tab(self):
-        """Expose the other active team as a partially visible ghost tab."""
+    def rebuild_ghost_bar(self):
+        """Render the inactive team in its own reduced-opacity window."""
+        for widget in self.ghost_content.winfo_children():
+            widget.destroy()
         if not self.ghost_team or not self.ghost_accounts:
+            self.ghost_window.withdraw()
             return
-        self.outer.update_idletasks()
+
         theme = self.theme
-        ghost = self.ghost_accounts[0]
-        self.ghost_button = ctk.CTkButton(
-            self.outer, text="", image=self.image_for(ghost.get("classe", "Inconnu")),
-            width=30, height=38, corner_radius=9,
-            fg_color=theme.get("panel_alt", "#34495e"), hover_color=theme.get("accent", "#2f80c3"),
-            border_width=1, border_color=theme.get("border", "#78b9e8"),
-            command=lambda team=self.ghost_team: self.on_team_selected(team),
+        panel_alt = theme.get("panel_alt", "#34495e")
+        self.ghost_outer.configure(
+            fg_color=theme.get("panel", "#283845"),
+            border_color=theme.get("border", "#78b9e8"),
         )
+        is_vertical = self.var_vertical.get()
+        cards_frame = ctk.CTkFrame(self.ghost_content, width=1, fg_color="transparent")
+        cards_frame.pack()
+        total = len(self.ghost_accounts)
+        card_width = 47 if total <= self.MAX_COMFORTABLE_CELLS else max(38, 658 // total)
+        for account in self.ghost_accounts:
+            card = ctk.CTkButton(
+                cards_frame, text="", image=self.image_for(account.get("classe", "Inconnu")),
+                width=card_width, height=46, corner_radius=10,
+                fg_color=panel_alt, hover_color=theme.get("accent", "#2f80c3"),
+                border_width=1, border_color=panel_alt,
+                command=lambda team=self.ghost_team: self.on_team_selected(team),
+            )
+            card.pack(side="top" if is_vertical else "left", padx=2, pady=2)
+        self.ghost_window.update_idletasks()
+        self.sync_ghost_bar()
+
+    def sync_ghost_bar(self):
+        """Place the ghost under, and offset by half, the main quick bar."""
+        if not self.ghost_team or not self.ghost_accounts or not self.window.winfo_viewable():
+            self.ghost_window.withdraw()
+            return
+        self.window.update_idletasks()
+        self.ghost_window.update_idletasks()
+        main_x, main_y = self.window.winfo_x(), self.window.winfo_y()
+        main_w, main_h = self.window.winfo_width(), self.window.winfo_height()
+        ghost_w, ghost_h = self.ghost_window.winfo_width(), self.ghost_window.winfo_height()
         if self.var_vertical.get():
-            x_pos = self.outer.winfo_width() - 14
-            y_pos = max(30, (self.outer.winfo_height() - 38) // 2)
-        elif self.is_on_right_half():
-            x_pos = self.outer.winfo_width() - 14
-            y_pos = max(4, (self.outer.winfo_height() - 38) // 2)
+            below = main_y + main_h / 2 < self.window.winfo_screenheight() / 2
+            ghost_x = main_x
+            ghost_y = main_y + main_h // 2 if below else main_y - ghost_h + main_h // 2
         else:
-            x_pos = -16
-            y_pos = max(4, (self.outer.winfo_height() - 38) // 2)
-        self.ghost_button.place(x=x_pos, y=y_pos)
+            to_right = main_x + main_w / 2 < self.window.winfo_screenwidth() / 2
+            ghost_x = main_x + main_w // 2 if to_right else main_x - ghost_w + main_w // 2
+            ghost_y = main_y
+        self.ghost_window.geometry(f"+{int(ghost_x)}+{int(ghost_y)}")
+        self.ghost_window.deiconify()
+        self.ghost_window.lift()
+        self.window.lift()
+        self.window.attributes("-topmost", True)
 
     def update_card_states(self):
         try:
