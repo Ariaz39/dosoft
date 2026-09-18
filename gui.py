@@ -18,16 +18,28 @@ from resource_paths import resource_path, skin_path
 ctk.set_appearance_mode("Dark")  
 ctk.set_default_color_theme("blue")  
 
-GAME_THEMES = {
-    "Unity": {
+UNITY_THEMES = {
+    # Nouveau visuel Unity : thème par défaut de la bêta.
+    "1": {
         "background": "#111225", "panel": "#20213d", "panel_alt": "#35375c",
         "accent": "#9ebd05", "accent_hover": "#bfdc1c", "border": "#b9e936",
         "title": "#f0f0ff", "muted": "#c6c6e8", "banner": "#282948",
         "toast": "#2a2d4c", "clear": "#a3434d", "clear_hover": "#c95862",
         "background_image": "unity_arcane_texture.png",
+        "module_surface": True,
         "focus_icon": "focus", "volume_icon": "volume",
         "follow_icon": "follow", "group_icon": "groupe",
     },
+    # Aspect Unity historique, conservé sans modification comme alternative.
+    "2": {
+        "background": "#1f2933", "panel": "#283845", "panel_alt": "#34495e",
+        "accent": "#2f80c3", "accent_hover": "#3e95d5", "border": "#78b9e8",
+        "title": "#d8efff", "muted": "#b7c9d6",
+    },
+}
+
+GAME_THEMES = {
+    "Unity": UNITY_THEMES["1"],
     "Rétro": {
         "background": "#2d2822", "panel": "#40382d", "panel_alt": "#554836",
         "accent": "#9a6a3f", "accent_hover": "#b27c4a", "border": "#e0bd78",
@@ -76,6 +88,8 @@ RETRO_THEMES = {
 
 
 def selected_game_theme(config):
+    if config.get("game_version", "Unity") == "Unity":
+        return UNITY_THEMES.get(str(config.get("unity_theme", "1")), UNITY_THEMES["1"])
     if config.get("game_version", "Unity") == "Wakfu":
         return WAKFU_THEMES.get(str(config.get("wakfu_theme", "1")), WAKFU_THEMES["1"])
     if config.get("game_version") == "Rétro":
@@ -171,7 +185,7 @@ class SettingsWindow(ctk.CTkToplevel):
         self.lbl_unity_theme.pack(side="left", padx=8, pady=8)
         self.var_unity_theme = ctk.StringVar(value=str(self.app.config.data.get("unity_theme", "1")))
         self.menu_unity_theme = ctk.CTkOptionMenu(
-            self.frame_unity_theme, values=["1"], variable=self.var_unity_theme,
+            self.frame_unity_theme, values=list(UNITY_THEMES.keys()), variable=self.var_unity_theme,
             command=self.on_unity_theme_change,
         )
         self.menu_unity_theme.pack(side="right", padx=8, pady=8)
@@ -333,10 +347,9 @@ class OrganizerGUI:
         # Fond texturé, réservé aux trois moteurs pour donner de la profondeur
         # aux respirations entre les cartes.
         self.wakfu_background_texture = None
-        texture_path = resource_path(
-            "resources", "skin", self.game_theme.get("background_image", "wakfu_panel_texture.png")
-        )
-        if os.path.exists(texture_path):
+        texture_name = self.game_theme.get("background_image")
+        texture_path = resource_path("resources", "skin", texture_name) if texture_name else ""
+        if texture_path and os.path.exists(texture_path):
             self.wakfu_background_texture = self.create_rounded_theme_image(texture_path, (670, 850), 18)
         self.lbl_wakfu_background = ctk.CTkLabel(
             self.root, text="", image=self.wakfu_background_texture, fg_color="transparent",
@@ -371,11 +384,10 @@ class OrganizerGUI:
             self.root, height=58, corner_radius=9, fg_color="#172126",
         )
         self.frame_module_banner.pack_propagate(False)
-        texture_path = resource_path(
-            "resources", "skin", self.game_theme.get("background_image", "wakfu_panel_texture.png")
-        )
+        texture_name = self.game_theme.get("background_image")
+        texture_path = resource_path("resources", "skin", texture_name) if texture_name else ""
         self.wakfu_banner_texture = None
-        if os.path.exists(texture_path):
+        if texture_path and os.path.exists(texture_path):
             self.wakfu_banner_texture = self.create_rounded_theme_image(texture_path, (670, 58), 13)
         self.lbl_module_texture = ctk.CTkLabel(
             self.frame_module_banner, text="", image=self.wakfu_banner_texture,
@@ -554,7 +566,9 @@ class OrganizerGUI:
 
     def refresh_module_theme_images(self):
         """Reload the selected engine's background and banner textures."""
-        image_name = self.game_theme.get("background_image", "wakfu_panel_texture.png")
+        image_name = self.game_theme.get("background_image")
+        if not image_name:
+            return
         path = resource_path("resources", "skin", image_name)
         if not os.path.exists(path):
             return
@@ -581,7 +595,7 @@ class OrganizerGUI:
         is_unity = version == "Unity"
         is_wakfu = version == "Wakfu"
         is_retro = version == "Rétro"
-        has_module_theme = is_unity or is_wakfu or is_retro
+        has_module_theme = is_wakfu or is_retro or (is_unity and theme.get("module_surface", False))
         self.game_theme = theme
         if has_module_theme:
             self.refresh_module_theme_images()
