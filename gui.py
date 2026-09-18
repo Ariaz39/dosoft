@@ -115,6 +115,7 @@ class SettingsWindow(ctk.CTkToplevel):
         input_hover = theme["accent_hover"] if is_module_theme else "#1f538d"
         clear_color = theme.get("clear", "#c0392b") if is_module_theme else "#c0392b"
         clear_hover = theme.get("clear_hover", "#e74c3c") if is_module_theme else "#e74c3c"
+        self.theme_selector_buttons = {}
 
         title_font = ctk.CTkFont(size=16, weight="bold")
 
@@ -168,38 +169,18 @@ class SettingsWindow(ctk.CTkToplevel):
         )
         self.btn_wakfu_autofocus_clear.pack(side="right", padx=3, pady=8)
 
-        self.frame_wakfu_theme = ctk.CTkFrame(self.scroll_container)
-        self.frame_wakfu_theme.pack(fill="x", padx=10, pady=5)
-        self.lbl_wakfu_theme = ctk.CTkLabel(self.frame_wakfu_theme, text="Thème WAKFU")
-        self.lbl_wakfu_theme.pack(side="left", padx=8, pady=8)
         self.var_wakfu_theme = ctk.StringVar(value=str(self.app.config.data.get("wakfu_theme", "1")))
-        self.menu_wakfu_theme = ctk.CTkOptionMenu(
-            self.frame_wakfu_theme, values=list(WAKFU_THEMES.keys()), variable=self.var_wakfu_theme,
-            command=self.on_wakfu_theme_change,
-        )
-        self.menu_wakfu_theme.pack(side="right", padx=8, pady=8)
-
-        self.frame_unity_theme = ctk.CTkFrame(self.scroll_container)
-        self.frame_unity_theme.pack(fill="x", padx=10, pady=5)
-        self.lbl_unity_theme = ctk.CTkLabel(self.frame_unity_theme, text="Thème UNITY")
-        self.lbl_unity_theme.pack(side="left", padx=8, pady=8)
         self.var_unity_theme = ctk.StringVar(value=str(self.app.config.data.get("unity_theme", "1")))
-        self.menu_unity_theme = ctk.CTkOptionMenu(
-            self.frame_unity_theme, values=list(UNITY_THEMES.keys()), variable=self.var_unity_theme,
-            command=self.on_unity_theme_change,
-        )
-        self.menu_unity_theme.pack(side="right", padx=8, pady=8)
-
-        self.frame_retro_theme = ctk.CTkFrame(self.scroll_container)
-        self.frame_retro_theme.pack(fill="x", padx=10, pady=5)
-        self.lbl_retro_theme = ctk.CTkLabel(self.frame_retro_theme, text="Thème Rétro")
-        self.lbl_retro_theme.pack(side="left", padx=8, pady=8)
         self.var_retro_theme = ctk.StringVar(value=str(self.app.config.data.get("retro_theme", "1")))
-        self.menu_retro_theme = ctk.CTkOptionMenu(
-            self.frame_retro_theme, values=list(RETRO_THEMES.keys()), variable=self.var_retro_theme,
-            command=self.on_retro_theme_change,
+        self.frame_wakfu_theme, self.lbl_wakfu_theme = self.create_theme_selector(
+            "WAKFU", self.var_wakfu_theme, WAKFU_THEMES, self.on_wakfu_theme_change
         )
-        self.menu_retro_theme.pack(side="right", padx=8, pady=8)
+        self.frame_unity_theme, self.lbl_unity_theme = self.create_theme_selector(
+            "UNITY", self.var_unity_theme, UNITY_THEMES, self.on_unity_theme_change
+        )
+        self.frame_retro_theme, self.lbl_retro_theme = self.create_theme_selector(
+            "Rétro", self.var_retro_theme, RETRO_THEMES, self.on_retro_theme_change
+        )
 
         frame_language = ctk.CTkFrame(self.scroll_container)
         frame_language.pack(fill="x", padx=10, pady=5)
@@ -238,6 +219,52 @@ class SettingsWindow(ctk.CTkToplevel):
         self.btn_close = ctk.CTkButton(self.scroll_container, text=self.app.i18n.t("settings_close", "Fermer"), fg_color="#7f8c8d", command=self.destroy)
         self.btn_close.pack(pady=(20, 10))
 
+    def create_theme_selector(self, name, variable, available_themes, on_change):
+        """Three numbered theme slots; future slots remain visibly unavailable."""
+        frame = ctk.CTkFrame(self.scroll_container)
+        frame.pack(fill="x", padx=10, pady=5)
+        label = ctk.CTkLabel(frame, text=f"Thème {name}")
+        label.pack(side="left", padx=8, pady=8)
+        button_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        button_frame.pack(side="right", padx=8, pady=6)
+        buttons = {}
+        for slot in ("1", "2", "3"):
+            is_available = slot in available_themes
+            button = ctk.CTkButton(
+                button_frame, text=slot, width=34, height=28, corner_radius=7,
+                command=lambda selected=slot: self.select_theme_slot(variable, selected, on_change),
+            )
+            if not is_available:
+                button.configure(
+                    state="disabled", fg_color="#0b0b0b", hover_color="#0b0b0b",
+                    text_color="#f4f4f4", text_color_disabled="#f4f4f4",
+                    border_width=1, border_color="#f4f4f4",
+                )
+            button.pack(side="left", padx=3)
+            buttons[slot] = (button, is_available, variable)
+        self.theme_selector_buttons[name] = buttons
+        self.refresh_theme_selector_states()
+        return frame, label
+
+    def select_theme_slot(self, variable, choice, on_change):
+        variable.set(choice)
+        on_change(choice)
+
+    def refresh_theme_selector_states(self):
+        theme = self.parent.game_theme
+        for buttons in self.theme_selector_buttons.values():
+            for slot, (button, is_available, variable) in buttons.items():
+                if not is_available:
+                    continue
+                is_selected = variable.get() == slot
+                button.configure(
+                    fg_color=theme["accent"] if is_selected else theme["panel_alt"],
+                    hover_color=theme["accent_hover"] if is_selected else theme["panel"],
+                    text_color="#101010" if is_selected else theme["title"],
+                    border_width=2 if is_selected else 0,
+                    border_color=theme["border"] if is_selected else theme["panel_alt"],
+                )
+
     def save_settings(self):
         previous_language = self.app.config.data.get("language", "fr")
         self.app.config.data["radial_menu_active"] = self.var_radial.get()
@@ -251,6 +278,7 @@ class SettingsWindow(ctk.CTkToplevel):
         self.app.setup_hotkeys()
         self.app.config.save()
         self.parent.apply_game_theme()
+        self.refresh_theme_selector_states()
         self.parent.apply_translations()
         self.apply_translations()
         self.app.config.data["notif_api_mode"] = self.var_notif_api.get()
