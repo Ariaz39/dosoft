@@ -14,7 +14,12 @@ def resource_path(*parts: str) -> str:
 
 def skin_path(class_name: str, *, wheel: bool = False, engine: str | None = None) -> str:
     """Resolve a class visual for its engine, with legacy assets as fallback."""
-    filename = class_name.removesuffix("_retro").lower()
+    filename = (class_name or "Inconnu").removesuffix("_retro").lower()
+
+    # Une fenêtre de menu ou une classe non reconnue doit être identifiable au
+    # premier coup d'œil, quel que soit le moteur sélectionné.
+    if filename in {"inconnu", "unknown", "menu", ""}:
+        return resource_path("resources", "skin", "menu.png")
 
     # Unity uses its original class art (``classe.png``); WAKFU uses the
     # dedicated head portraits (``classe tete.png``) copied as ``_tete``.
