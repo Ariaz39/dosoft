@@ -49,25 +49,50 @@ class DofusLogic:
         self.all_accounts = []
         self.leader_hwnd = None
 
+    def matches_current_game_window(self, hwnd, title=None):
+        """Return whether a visible HWND belongs to the selected game engine."""
+        try:
+            if not win32gui.IsWindowVisible(hwnd):
+                return False
+            title = win32gui.GetWindowText(hwnd) if title is None else title
+            if not title.strip():
+                return False
+            game_version = self.config.data.get("game_version", "Unity")
+            if game_version == "Unity":
+                return win32gui.GetClassName(hwnd) == "UnityWndClass"
+            if game_version == "Rétro":
+                return "Dofus Retro" in title
+            if game_version == "Wakfu":
+                return is_wakfu_window(hwnd, title, win32gui.GetClassName(hwnd))
+        except Exception:
+            pass
+        return False
+
+    def has_target_game_window(self):
+        """Cheap detector used by the automatic refresh watchdog."""
+        found = False
+
+        def enum_windows_callback(hwnd, _extra):
+            nonlocal found
+            if self.matches_current_game_window(hwnd):
+                found = True
+                return False
+            return True
+
+        try:
+            win32gui.EnumWindows(enum_windows_callback, None)
+        except Exception:
+            pass
+        return found
+
     def scan_slots(self):
         game_version = self.config.data.get("game_version", "Unity")
         windows_trouvees = []
 
         def enum_windows_callback(hwnd, extra):
-            if win32gui.IsWindowVisible(hwnd):
-                titre = win32gui.GetWindowText(hwnd)
-                if not titre.strip(): return True
-                
-                if game_version == "Unity":
-                    if win32gui.GetClassName(hwnd) == "UnityWndClass":
-                        windows_trouvees.append((hwnd, titre))
-                elif game_version == "Rétro":
-                    if "Dofus Retro" in titre:
-                        windows_trouvees.append((hwnd, titre))
-                elif game_version == "Wakfu":
-                    class_name = win32gui.GetClassName(hwnd)
-                    if is_wakfu_window(hwnd, titre, class_name):
-                        windows_trouvees.append((hwnd, titre))
+            titre = win32gui.GetWindowText(hwnd)
+            if self.matches_current_game_window(hwnd, titre):
+                windows_trouvees.append((hwnd, titre))
             return True
 
         win32gui.EnumWindows(enum_windows_callback, None)

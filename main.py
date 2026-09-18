@@ -103,6 +103,7 @@ class OrganizerApp:
         
         self.setup_hotkeys()
         self.refresh()
+        self.gui.root.after(5000, self.auto_refresh_watchdog)
         self.start_notification_listener()
         self.start_wakfu_log_listener()
         self.start_wakfu_turn_visual_listener()
@@ -434,6 +435,33 @@ class OrganizerApp:
         source_version = self.config.data.get("game_version", "Unity")
         slots = self.logic.scan_slots()
         self.gui.root.after(0, self.gui.refresh_list, slots, source_version)
+
+    def auto_refresh_watchdog(self):
+        """Refresh newly launched games without forcing users to press F5.
+
+        A detected login/menu is intentionally checked less often than a
+        single-character launch, avoiding needless scans while the player is
+        choosing a character.
+        """
+        try:
+            target_running = self.logic.has_target_game_window()
+            accounts = list(self.logic.all_accounts)
+            has_waiting_menu = any(account.get("is_menu", False) for account in accounts)
+            characters_detected = sum(not account.get("is_menu", False) for account in accounts)
+
+            if target_running and has_waiting_menu:
+                self.refresh()
+                delay_ms = 60_000
+            elif target_running and characters_detected < 2:
+                self.refresh()
+                delay_ms = 20_000
+            else:
+                # No game (or a healthy group): inexpensive process/window
+                # detection continues so a later launch is picked up.
+                delay_ms = 5_000
+        except Exception:
+            delay_ms = 5_000
+        self.gui.root.after(delay_ms, self.auto_refresh_watchdog)
 
     def change_game_engine(self, version):
         """Atomically discard the previous engine's cycle before rescanning."""
