@@ -209,6 +209,24 @@ class SettingsWindow(ctk.CTkToplevel):
         self.btn_team_switch_clear.pack(side="right", padx=3, pady=8)
         self.parent.hotkey_clear_buttons.append(self.btn_team_switch_clear)
 
+        self.frame_character_bar_format = ctk.CTkFrame(self.scroll_container)
+        self.frame_character_bar_format.pack(fill="x", padx=10, pady=5)
+        self.lbl_character_bar_format = ctk.CTkLabel(
+            self.frame_character_bar_format, text="Format simplifié"
+        )
+        self.lbl_character_bar_format.pack(side="left", padx=8, pady=8)
+        self.var_character_bar_compact = ctk.BooleanVar(
+            value=self.app.config.data.get("character_bar_compact", False)
+        )
+        self.sw_character_bar_compact = ctk.CTkSwitch(
+            self.frame_character_bar_format,
+            text="Activer",
+            variable=self.var_character_bar_compact,
+            command=self.save_settings,
+            width=90,
+        )
+        self.sw_character_bar_compact.pack(side="right", padx=8, pady=8)
+
         self.var_wakfu_theme = ctk.StringVar(value=str(self.app.config.data.get("wakfu_theme", "1")))
         self.var_unity_theme = ctk.StringVar(value=str(self.app.config.data.get("unity_theme", "1")))
         self.var_retro_theme = ctk.StringVar(value=str(self.app.config.data.get("retro_theme", "1")))
@@ -314,6 +332,7 @@ class SettingsWindow(ctk.CTkToplevel):
         self.app.config.data["unity_theme"] = self.var_unity_theme.get()
         self.app.config.data["retro_theme"] = self.var_retro_theme.get()
         self.app.config.data["fast_switch_team_disabled"] = self.var_fast_switch_team_disabled.get()
+        self.app.config.data["character_bar_compact"] = self.var_character_bar_compact.get()
         self.app.i18n.set_locale(self.var_language.get())
         self.app.keymaps.set_layout(self.var_keyboard_layout.get())
         self.app.setup_hotkeys()
@@ -374,6 +393,8 @@ class SettingsWindow(ctk.CTkToplevel):
         self.lbl_fast_switch_team.configure(text="Fast Switch TEAM")
         self.sw_fast_switch_team_disabled.configure(text="Désactiver")
         self.lbl_team_switch_hotkey.configure(text="Raccourci switch de mode TEAM")
+        self.lbl_character_bar_format.configure(text="Format simplifié")
+        self.sw_character_bar_compact.configure(text="Activer")
         self.lbl_wakfu_theme.configure(text="Thème WAKFU")
         self.lbl_unity_theme.configure(text="Thème UNITY")
         self.lbl_retro_theme.configure(text="Thème Rétro")

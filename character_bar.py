@@ -134,6 +134,7 @@ class CharacterQuickBar:
         return (
             self.engine,
             self.var_vertical.get(),
+            self.config.data.get("character_bar_compact", False),
             account_fields(self.accounts),
             self.ghost_team,
             account_fields(self.ghost_accounts),
@@ -241,16 +242,19 @@ class CharacterQuickBar:
         self.debug(f"drag:end x={self.window.winfo_x()} y={self.window.winfo_y()}")
 
     def image_for(self, class_name):
+        return self.image_for_size(class_name, (30, 30))
+
+    def image_for_size(self, class_name, size):
         class_filename = (class_name or "Inconnu").removesuffix("_retro").lower()
         quick_icon = resource_path("resources", "skin", "icone menu", f"eco_{class_filename}.png")
         engine = "retro" if self.engine == "Rétro" else "wakfu" if self.engine == "Wakfu" else "unity"
         path = quick_icon if os.path.exists(quick_icon) else skin_path(class_name, engine=engine)
-        cache_key = f"quickbar:{path}"
+        cache_key = f"quickbar:{path}:{size[0]}x{size[1]}"
         if cache_key in self.image_cache:
             return self.image_cache[cache_key]
         try:
             image = Image.open(path)
-            result = ctk.CTkImage(light_image=image, dark_image=image, size=(30, 30))
+            result = ctk.CTkImage(light_image=image, dark_image=image, size=size)
             self.image_cache[cache_key] = result
             return result
         except Exception:
@@ -261,33 +265,39 @@ class CharacterQuickBar:
         x_pos = saved[0] if isinstance(saved, list) and len(saved) == 2 else self.window.winfo_x()
         return x_pos + self.window.winfo_width() / 2 > self.window.winfo_screenwidth() / 2
 
-    def create_controls(self, parent, theme):
+    def create_controls(self, parent, theme, compact=False):
         """Create an icon-only compact control strip with a small drag grip."""
         panel = theme.get("panel", "#283845")
         accent = theme.get("accent", "#2f80c3")
         border = theme.get("border", "#78b9e8")
-        controls = ctk.CTkFrame(parent, width=1, height=46, corner_radius=10, fg_color=panel)
-        drag_grip = ctk.CTkFrame(controls, width=6, height=28, corner_radius=3, fg_color=theme.get("panel_alt", panel))
-        drag_grip.pack(side="left", padx=(4, 2), pady=9)
+        control_height = 28 if compact else 46
+        controls = ctk.CTkFrame(parent, width=1, height=control_height, corner_radius=7 if compact else 10, fg_color=panel)
+        drag_grip = ctk.CTkFrame(
+            controls, width=4 if compact else 6, height=16 if compact else 28,
+            corner_radius=2 if compact else 3, fg_color=theme.get("panel_alt", panel),
+        )
+        drag_grip.pack(side="left", padx=(3, 1) if compact else (4, 2), pady=5 if compact else 9)
         for widget in (drag_grip,):
             widget.bind("<ButtonPress-1>", self.start_drag)
             widget.bind("<B1-Motion>", self.drag)
             widget.bind("<ButtonRelease-1>", self.end_drag)
         self.hide_button = ctk.CTkButton(
-            controls, text="", image=self.cross_image, width=24, height=22, corner_radius=7,
+            controls, text="", image=self.cross_image, width=18 if compact else 24, height=18 if compact else 22,
+            corner_radius=5 if compact else 7,
             fg_color=theme.get("clear", "#a3434d"), hover_color=theme.get("clear_hover", "#c95862"),
             command=self.hide_from_bar,
         )
-        self.hide_button.pack(side="left", padx=2, pady=10)
+        self.hide_button.pack(side="left", padx=1 if compact else 2, pady=5 if compact else 10)
         self.orientation_button = ctk.CTkButton(
-            controls, text="", image=self.up_image, width=24, height=22, corner_radius=7,
+            controls, text="", image=self.up_image, width=18 if compact else 24, height=18 if compact else 22,
+            corner_radius=5 if compact else 7,
             fg_color=accent if self.var_vertical.get() else panel,
             hover_color=theme.get("accent_hover", accent),
             border_width=1 if self.var_vertical.get() else 0,
             border_color=border if self.var_vertical.get() else panel,
             command=self.toggle_orientation,
         )
-        self.orientation_button.pack(side="left", padx=(2, 4), pady=10)
+        self.orientation_button.pack(side="left", padx=(1, 3) if compact else (2, 4), pady=5 if compact else 10)
         return controls
 
     def rebuild(self):
@@ -310,12 +320,16 @@ class CharacterQuickBar:
         self.outer.configure(fg_color=panel, border_color=border)
         self.window.configure(fg_color=panel)
         is_vertical = self.var_vertical.get()
-        controls = self.create_controls(self.content, theme)
+        is_compact = self.config.data.get("character_bar_compact", False)
+        controls = self.create_controls(self.content, theme, compact=is_compact)
         # Keep the inactive team portraits exactly on the same axis as the
         # active portraits, despite the latter's control strip.
         self.ghost_control_space = 78
         cards_frame = ctk.CTkFrame(self.content, width=1, fg_color="transparent")
-        if is_vertical:
+        if is_compact:
+            controls.pack(side="top", anchor="center", pady=(0, 2))
+            cards_frame.pack(side="top", anchor="center")
+        elif is_vertical:
             controls.pack(side="top", anchor="center", pady=(0, 3))
             cards_frame.pack(side="top", anchor="center")
         elif self.is_on_right_half():
@@ -338,22 +352,25 @@ class CharacterQuickBar:
         # Up to 14 characters keep the intended generous spacing.  Above that,
         # cards contract slightly so every detected account remains available.
         total = len(self.accounts)
-        card_width = 47 if total <= self.MAX_COMFORTABLE_CELLS else max(38, 658 // total)
-        for account in self.accounts:
+        card_width = 30 if is_compact else 47 if total <= self.MAX_COMFORTABLE_CELLS else max(38, 658 // total)
+        for index, account in enumerate(self.accounts):
             card = ctk.CTkButton(
                 cards_frame,
                 text="",
-                image=self.image_for(account.get("classe", "Inconnu")),
+                image=self.image_for_size(account.get("classe", "Inconnu"), (20, 20) if is_compact else (30, 30)),
                 width=card_width,
-                height=46,
-                corner_radius=10,
+                height=30 if is_compact else 46,
+                corner_radius=7 if is_compact else 10,
                 fg_color=panel_alt,
                 hover_color=accent,
                 border_width=1,
                 border_color=panel_alt,
                 command=lambda selected=account: self.on_character_selected(selected),
             )
-            card.pack(side="top" if is_vertical else "left", padx=2, pady=2)
+            if is_compact:
+                card.grid(row=index // 4, column=index % 4, padx=1, pady=1)
+            else:
+                card.pack(side="top" if is_vertical else "left", padx=2, pady=2)
             card.bind("<Enter>", lambda _event, button=card: button.configure(border_color=border))
             card.bind("<Leave>", lambda _event, button=card: button.configure(border_color=panel_alt))
             self.cards.append((card, account))
@@ -404,10 +421,17 @@ class CharacterQuickBar:
             widget.bind("<Button-1>", self.select_ghost_team)
             widget.bind("<ButtonPress-1>", lambda _event: self.keep_ghost_below_main())
         is_vertical = self.var_vertical.get()
+        is_compact = self.config.data.get("character_bar_compact", False)
         cards_frame = ctk.CTkFrame(self.ghost_content, width=1, fg_color="transparent")
         cards_frame.bind("<Button-1>", self.select_ghost_team)
         spacer = ctk.CTkFrame(self.ghost_content, fg_color="transparent")
-        if is_vertical:
+        if is_compact:
+            # Match the compact control strip so ghost and active portraits
+            # remain perfectly aligned inside their small rectangles.
+            spacer.configure(width=1, height=30)
+            spacer.pack(side="top")
+            cards_frame.pack(side="top")
+        elif is_vertical:
             spacer.configure(width=1, height=49)
             spacer.pack(side="top")
             cards_frame.pack(side="top")
@@ -420,16 +444,23 @@ class CharacterQuickBar:
             spacer.configure(width=self.ghost_control_space, height=1)
             spacer.pack(side="left")
         total = len(self.ghost_accounts)
-        card_width = 47 if total <= self.MAX_COMFORTABLE_CELLS else max(38, 658 // total)
-        for account in self.ghost_accounts:
+        card_width = 30 if is_compact else 47 if total <= self.MAX_COMFORTABLE_CELLS else max(38, 658 // total)
+        for index, account in enumerate(self.ghost_accounts):
             card = ctk.CTkButton(
-                cards_frame, text="", image=self.image_for(account.get("classe", "Inconnu")),
-                width=card_width, height=46, corner_radius=10,
+                cards_frame,
+                text="",
+                image=self.image_for_size(account.get("classe", "Inconnu"), (20, 20) if is_compact else (30, 30)),
+                width=card_width,
+                height=30 if is_compact else 46,
+                corner_radius=7 if is_compact else 10,
                 fg_color=panel_alt, hover_color=theme.get("accent", "#2f80c3"),
                 border_width=1, border_color=panel_alt,
                 command=lambda selected=account: self.select_ghost_character(selected),
             )
-            card.pack(side="top" if is_vertical else "left", padx=2, pady=2)
+            if is_compact:
+                card.grid(row=index // 4, column=index % 4, padx=1, pady=1)
+            else:
+                card.pack(side="top" if is_vertical else "left", padx=2, pady=2)
         self.fit_window_to_content(self.ghost_window, self.ghost_outer)
         self.sync_ghost_bar()
 
