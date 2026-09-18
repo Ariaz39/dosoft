@@ -212,7 +212,7 @@ class SettingsWindow(ctk.CTkToplevel):
         self.frame_character_bar_format = ctk.CTkFrame(self.scroll_container)
         self.frame_character_bar_format.pack(fill="x", padx=10, pady=5)
         self.lbl_character_bar_format = ctk.CTkLabel(
-            self.frame_character_bar_format, text="Format simplifié"
+            self.frame_character_bar_format, text="Barre perso minimal"
         )
         self.lbl_character_bar_format.pack(side="left", padx=8, pady=8)
         self.var_character_bar_compact = ctk.BooleanVar(
@@ -393,7 +393,7 @@ class SettingsWindow(ctk.CTkToplevel):
         self.lbl_fast_switch_team.configure(text="Fast Switch TEAM")
         self.sw_fast_switch_team_disabled.configure(text="Désactiver")
         self.lbl_team_switch_hotkey.configure(text="Raccourci switch de mode TEAM")
-        self.lbl_character_bar_format.configure(text="Format simplifié")
+        self.lbl_character_bar_format.configure(text="Barre perso minimal")
         self.sw_character_bar_compact.configure(text="Activer")
         self.lbl_wakfu_theme.configure(text="Thème WAKFU")
         self.lbl_unity_theme.configure(text="Thème UNITY")
