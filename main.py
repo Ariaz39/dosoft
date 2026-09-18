@@ -8,8 +8,10 @@ if getattr(sys, "frozen", False):
     _tcl_dir = os.path.join(_bundle_dir, "tcl8.6")
     _tk_dir = os.path.join(_bundle_dir, "tk8.6")
     if os.path.isdir(_tcl_dir) and os.path.isdir(_tk_dir):
-        os.environ.setdefault("TCL_LIBRARY", _tcl_dir)
-        os.environ.setdefault("TK_LIBRARY", _tk_dir)
+        # Override PyInstaller's default runtime hook: its automatic Tcl/Tk
+        # discovery cannot see DOSOFT's portable runtime during the build.
+        os.environ["TCL_LIBRARY"] = _tcl_dir
+        os.environ["TK_LIBRARY"] = _tk_dir
 
 import ctypes
 import threading

@@ -9,6 +9,8 @@ set APP_NAME=Dosoft_BETA
 set MAIN_FILE=main.py
 set ICON_FILE=logo.ico
 set OUT_DIR=dist
+set TCL_LIBRARY=%~dp0..\python313-tcl\tcl8.6
+set TK_LIBRARY=%~dp0..\python313-tcl\tk8.6
 
 echo.
 echo  ============================
@@ -33,6 +35,7 @@ python -m PyInstaller ^
     --onefile ^
     --noconsole ^
     --uac-admin ^
+    --additional-hooks-dir="hooks" ^
     --icon="%ICON_FILE%" ^
     --name="%APP_NAME%" ^
     --distpath="%OUT_DIR%" ^
@@ -43,6 +46,9 @@ python -m PyInstaller ^
     --add-data="resources\\skin;resources\\skin" ^
     --add-data="..\\python313-tcl\\tcl8.6;tcl8.6" ^
     --add-data="..\\python313-tcl\\tk8.6;tk8.6" ^
+    --add-binary="%LOCALAPPDATA%\\Programs\\Python\\Python313\\DLLs\\_tkinter.pyd;." ^
+    --add-binary="%LOCALAPPDATA%\\Programs\\Python\\Python313\\DLLs\\tcl86t.dll;." ^
+    --add-binary="%LOCALAPPDATA%\\Programs\\Python\\Python313\\DLLs\\tk86t.dll;." ^
     --add-data="logo.ico;." ^
     --add-data="version.json;." ^
     --hidden-import=customtkinter ^
@@ -53,7 +59,10 @@ python -m PyInstaller ^
     --hidden-import=win32gui ^
     --hidden-import=win32process ^
     --hidden-import=keyboard ^
+    --hidden-import=tkinter ^
+    --hidden-import=_tkinter ^
     --collect-all=customtkinter ^
+    --collect-all=tkinter ^
     "%MAIN_FILE%"
 
 if %ERRORLEVEL% NEQ 0 (
