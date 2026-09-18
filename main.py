@@ -97,9 +97,6 @@ class OrganizerApp:
         
         self.gui.root.after(1000, self.check_conflicting_software)
 
-        if not self.config.data.get("tutorial_done", False):
-            self.gui.root.after(800, self.gui.launch_tutorial)
-    
     def setup_system_tray(self):
         icon_path = "logo.ico" 
         try: image = Image.open(icon_path)
@@ -415,9 +412,23 @@ class OrganizerApp:
             keyboard.hook(self.global_hook_listener)
         except Exception: pass
 
-    def refresh(self): 
+    def refresh(self):
+        # The scan result is valid only for the engine selected at its start.
+        # A queued Tk callback from a previous engine must never repaint the
+        # current UI with stale WAKFU/Rétro/Unity accounts.
+        source_version = self.config.data.get("game_version", "Unity")
         slots = self.logic.scan_slots()
-        self.gui.root.after(0, self.gui.refresh_list, slots)
+        self.gui.root.after(0, self.gui.refresh_list, slots, source_version)
+
+    def change_game_engine(self, version):
+        """Atomically discard the previous engine's cycle before rescanning."""
+        self.config.data["game_version"] = version
+        self.config.save()
+        self.current_idx = 0
+        self.pending_cycle_direction = None
+        self.pending_wakfu_focus = None
+        self.logic.all_accounts = []
+        self.logic.leader_hwnd = None
 
     def start_wakfu_log_listener(self):
         log_path = os.path.join(

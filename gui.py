@@ -809,7 +809,10 @@ class OrganizerGUI:
         team_color = "#2980b9" if new_team == "Team 1" else "#c0392b"
         btn.configure(text="T1" if new_team == "Team 1" else "T2", fg_color=team_color)
 
-    def refresh_list(self, accounts):
+    def refresh_list(self, accounts, source_version=None):
+        # Ignore a delayed scan whose source engine was changed in the meantime.
+        if source_version and source_version != self.app.config.data.get("game_version", "Unity"):
+            return
         self.update_fast_command(accounts)
         for widget in self.scroll_frame.winfo_children(): widget.destroy()
         leader_name = self.app.config.data.get("leader_name", "")
@@ -1077,8 +1080,9 @@ class OrganizerGUI:
         self.apply_single_hotkey(config_key, "", btn)
 
     def on_version_change(self, choice):
-        self.app.config.data["game_version"] = choice
-        self.app.config.save()
+        if choice == self.app.config.data.get("game_version", "Unity"):
+            return
+        self.app.change_game_engine(choice)
         self.apply_game_theme()
         self.update_version_selector(choice)
         self.app.sync_wakfu_autofocus_overlay()
