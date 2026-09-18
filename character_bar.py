@@ -333,8 +333,11 @@ class CharacterQuickBar:
             border_color=theme.get("border", "#78b9e8"),
         )
         self.ghost_window.configure(fg_color=theme.get("panel", "#283845"))
+        for widget in (self.ghost_outer, self.ghost_content):
+            widget.bind("<Button-1>", self.select_ghost_team)
         is_vertical = self.var_vertical.get()
         cards_frame = ctk.CTkFrame(self.ghost_content, width=1, fg_color="transparent")
+        cards_frame.bind("<Button-1>", self.select_ghost_team)
         spacer = ctk.CTkFrame(self.ghost_content, fg_color="transparent")
         if is_vertical:
             spacer.configure(width=1, height=49)
@@ -356,11 +359,25 @@ class CharacterQuickBar:
                 width=card_width, height=46, corner_radius=10,
                 fg_color=panel_alt, hover_color=theme.get("accent", "#2f80c3"),
                 border_width=1, border_color=panel_alt,
-                command=lambda team=self.ghost_team: self.on_team_selected(team),
+                command=lambda selected=account: self.select_ghost_character(selected),
             )
             card.pack(side="top" if is_vertical else "left", padx=2, pady=2)
         self.fit_window_to_content(self.ghost_window, self.ghost_outer)
         self.sync_ghost_bar()
+
+    def select_ghost_team(self, _event=None):
+        """A click on the ghost surface is a simple Team 1/Team 2 swap."""
+        if self.ghost_team:
+            self.debug(f"clic fantôme: changement vers {self.ghost_team}")
+            self.on_team_selected(self.ghost_team)
+
+    def select_ghost_character(self, account):
+        """A ghost portrait swaps the team, then focuses that exact account."""
+        if not self.ghost_team:
+            return
+        self.debug(f"clic portrait fantôme: {account.get('name', '')} vers {self.ghost_team}")
+        self.on_team_selected(self.ghost_team)
+        self.parent_root.after(35, lambda selected=account: self.on_character_selected(selected))
 
     def fit_window_to_content(self, window, content):
         """Remove unused popup surface left by a previous larger layout."""
@@ -411,9 +428,13 @@ class CharacterQuickBar:
             )
             if width < 2 or height < 2:
                 return
+            widget_hwnd = window.winfo_id()
+            # CustomTkinter can expose a child HWND here.  The black rectangle
+            # belongs to the native root window, so clip that actual surface.
+            root_hwnd = ctypes.windll.user32.GetAncestor(widget_hwnd, 2) or widget_hwnd
             region = ctypes.windll.gdi32.CreateRoundRectRgn(0, 0, width + 1, height + 1, 28, 28)
-            result = ctypes.windll.user32.SetWindowRgn(window.winfo_id(), region, True)
-            self.debug(f"forme hwnd={window.winfo_id()} cible={width}x{height} actuelle={window.winfo_width()}x{window.winfo_height()} résultat={result}")
+            result = ctypes.windll.user32.SetWindowRgn(root_hwnd, region, True)
+            self.debug(f"forme widget={widget_hwnd} racine={root_hwnd} cible={width}x{height} actuelle={window.winfo_width()}x{window.winfo_height()} résultat={result}")
         except Exception:
             pass
 
