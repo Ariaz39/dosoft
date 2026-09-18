@@ -73,6 +73,7 @@ class CharacterQuickBar:
             pass
         self.ghost_window.resizable(False, False)
         self.parent_root.after_idle(self.make_ghost_non_activating)
+        self.parent_root.after_idle(self.make_main_owned_by_ghost)
 
         # Default CustomTkinter frames request 200 px.  A tiny base width lets
         # the vertical layout contract to the portraits instead.
@@ -524,6 +525,27 @@ class CharacterQuickBar:
             self.debug(f"z-order: fantôme={ghost_root} < principal={main_root}")
         except Exception:
             pass
+
+    def make_main_owned_by_ghost(self):
+        """Make the main popup an owned window of the ghost popup.
+
+        Windows guarantees that an owned popup is above its owner.  Unlike a
+        best-effort z-order call, this remains true after pointer activation
+        and after Tk internally recreates its stacking order.
+        """
+        try:
+            main_widget = self.window.winfo_id()
+            ghost_widget = self.ghost_window.winfo_id()
+            main_root = ctypes.windll.user32.GetAncestor(main_widget, 2) or main_widget
+            ghost_root = ctypes.windll.user32.GetAncestor(ghost_widget, 2) or ghost_widget
+            setter = ctypes.windll.user32.SetWindowLongPtrW
+            setter.argtypes = (ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p)
+            setter.restype = ctypes.c_void_p
+            setter(main_root, -8, ctypes.c_void_p(ghost_root))  # GWLP_HWNDPARENT = owner for popups
+            self.debug(f"ownership: principal={main_root} possédé par fantôme={ghost_root}")
+            self.keep_ghost_below_main()
+        except Exception as exc:
+            self.debug(f"ownership: échec {exc}")
 
     def make_ghost_non_activating(self):
         """Let the ghost receive clicks without Windows raising it on top."""
