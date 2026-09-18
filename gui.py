@@ -814,10 +814,11 @@ class OrganizerGUI:
         game_version = self.app.config.data.get("game_version", "Unity")
         is_retro = game_version == "Rétro"
         uses_manual_classes = game_version in ("Rétro", "Wakfu")
+        # Correspond exactement aux portraits disponibles dans resources/skin/retro.
+        # « Inconnu » est conservé pour le Menu Rétro / les fenêtres non détectées.
         retro_manual_classes = [
             "Inconnu", "Feca", "Osamodas", "Enutrof", "Sram", "Xelor", "Ecaflip",
-            "Eniripsa", "Iop", "Cra", "Sadida", "Sacrieur", "Pandawa", "Roublard",
-            "Zobal", "Steamer", "Eliotrope", "Huppermage", "Ouginak", "Forgelance",
+            "Eniripsa", "Iop", "Cra", "Sadida", "Sacrieur", "Pandawa",
         ]
         wakfu_manual_classes = [
             "Inconnu", "Feca", "Osamodas", "Enutrof", "Sram", "Xelor", "Ecaflip",
