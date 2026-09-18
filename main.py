@@ -72,6 +72,7 @@ class OrganizerApp:
             self.config,
             self.focus_character_from_bar,
             self.set_character_bar_visible,
+            self.select_team_from_bar,
         )
         self.character_bar.update_theme(
             self.gui.game_theme, self.config.data.get("game_version", "Unity")
@@ -463,6 +464,15 @@ class OrganizerApp:
             if candidate.get("hwnd") == account.get("hwnd"):
                 self.current_idx = index
                 break
+
+    def select_team_from_bar(self, team):
+        """Use the quick-bar ghost tab to switch to the other active team."""
+        if team not in ("Team 1", "Team 2"):
+            return
+        self.logic.set_mode(team)
+        self.current_idx = 0
+        self.gui.combo_mode.set(team)
+        self.gui.refresh_list(self.logic.all_accounts, self.config.data.get("game_version", "Unity"))
 
     def start_wakfu_log_listener(self):
         log_path = os.path.join(

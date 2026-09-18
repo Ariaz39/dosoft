@@ -845,6 +845,7 @@ class OrganizerGUI:
         self.app.logic.change_team(name, new_team)
         team_color = "#2980b9" if new_team == "Team 1" else "#c0392b"
         btn.configure(text="T1" if new_team == "Team 1" else "T2", fg_color=team_color)
+        self.refresh_list(self.app.logic.all_accounts, self.app.config.data.get("game_version", "Unity"))
 
     def refresh_list(self, accounts, source_version=None):
         # Ignore a delayed scan whose source engine was changed in the meantime.
@@ -885,7 +886,13 @@ class OrganizerGUI:
             var = tk.BooleanVar(value=acc['active'])
             
             chk_width = 110 if is_retro else 160
-            chk = ctk.CTkCheckBox(row_frame, text=acc['name'][:15], variable=var, width=chk_width, command=lambda n=acc['name'], v=var: self.app.logic.toggle_account(n, v.get()))
+            chk = ctk.CTkCheckBox(
+                row_frame,
+                text=acc['name'][:15],
+                variable=var,
+                width=chk_width,
+                command=lambda n=acc['name'], v=var: self.toggle_account_from_ui(n, v.get()),
+            )
             chk.pack(side="left", padx=(5, 0))
 
             if uses_manual_classes:
@@ -1142,6 +1149,14 @@ class OrganizerGUI:
     def on_mode_change(self, choice):
         self.app.logic.set_mode(choice)
         self.app.current_idx = 0
+        # The quick bar uses the active controller too: update it immediately,
+        # without waiting for the next window scan.
+        self.refresh_list(self.app.logic.all_accounts, self.app.config.data.get("game_version", "Unity"))
+
+    def toggle_account_from_ui(self, name, is_active):
+        """Keep the quick character bar in sync with a row checkbox."""
+        self.app.logic.toggle_account(name, is_active)
+        self.refresh_list(self.app.logic.all_accounts, self.app.config.data.get("game_version", "Unity"))
 
     def load_selector_image(self, icon_name, size=(28, 28)):
         path = resource_path("resources", "skin", f"{icon_name}.png")

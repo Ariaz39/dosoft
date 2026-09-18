@@ -21,16 +21,20 @@ class CharacterQuickBar:
 
     MAX_COMFORTABLE_CELLS = 14
 
-    def __init__(self, parent_root, config, on_character_selected, on_visibility_changed):
+    def __init__(self, parent_root, config, on_character_selected, on_visibility_changed, on_team_selected):
         self.parent_root = parent_root
         self.config = config
         self.on_character_selected = on_character_selected
         self.on_visibility_changed = on_visibility_changed
+        self.on_team_selected = on_team_selected
         self.accounts = []
+        self.ghost_accounts = []
+        self.ghost_team = None
         self.engine = config.data.get("game_version", "Unity")
         self.theme = {}
         self.image_cache = {}
         self.cards = []
+        self.ghost_button = None
         self._drag_origin = None
         self.var_vertical = ctk.BooleanVar(value=config.data.get("character_bar_vertical", False))
 
@@ -38,6 +42,12 @@ class CharacterQuickBar:
         self.window.withdraw()
         self.window.overrideredirect(True)
         self.window.attributes("-topmost", True)
+        self.transparent_color = "#0b0b0b"
+        try:
+            self.window.configure(fg_color=self.transparent_color)
+            self.window.attributes("-transparentcolor", self.transparent_color)
+        except tk.TclError:
+            pass
         self.window.resizable(False, False)
         self.window.protocol("WM_DELETE_WINDOW", self.hide_from_bar)
 
@@ -59,7 +69,16 @@ class CharacterQuickBar:
 
     def update_accounts(self, accounts, engine):
         self.engine = engine
-        self.accounts = list(accounts)
+        active_accounts = [account for account in accounts if account.get("active", False)]
+        mode = self.config.data.get("current_mode", "ALL")
+        if mode in ("Team 1", "Team 2"):
+            self.accounts = [account for account in active_accounts if account.get("team") == mode]
+            self.ghost_accounts = [account for account in active_accounts if account.get("team") != mode]
+            self.ghost_team = self.ghost_accounts[0].get("team") if self.ghost_accounts else None
+        else:
+            self.accounts = active_accounts
+            self.ghost_accounts = []
+            self.ghost_team = None
         self.rebuild()
         if self.config.data.get("character_bar_visible", False):
             self.set_visible(True)
@@ -73,6 +92,7 @@ class CharacterQuickBar:
         self.window.deiconify()
         self.window.lift()
         self.window.attributes("-topmost", True)
+        self.place_ghost_tab()
 
     def hide_from_bar(self):
         self.on_visibility_changed(False)
@@ -183,8 +203,10 @@ class CharacterQuickBar:
         border = theme.get("border", "#78b9e8")
         title = theme.get("title", "#ecf0f1")
         muted = theme.get("muted", "#b7c9d6")
-        self.window.configure(fg_color=theme.get("background", panel))
         self.outer.configure(fg_color=panel, border_color=border)
+        if self.ghost_button:
+            self.ghost_button.destroy()
+            self.ghost_button = None
         is_vertical = self.var_vertical.get()
         controls = self.create_controls(self.content, theme)
         cards_frame = ctk.CTkFrame(self.content, width=1, fg_color="transparent")
@@ -226,6 +248,7 @@ class CharacterQuickBar:
             card.bind("<Leave>", lambda _event, button=card: button.configure(border_color=panel_alt))
             self.cards.append((card, account))
         self.reanchor_after_resize(was_visible, old_x, old_y, old_width, old_height)
+        self.update_card_states()
 
     def reanchor_after_resize(self, was_visible, old_x, old_y, old_width, old_height):
         """Keep the nearest screen edge fixed while the bar gains cards."""
@@ -243,18 +266,53 @@ class CharacterQuickBar:
         self.window.geometry(f"+{new_x}+{new_y}")
         self.config.data["character_bar_position"] = [new_x, new_y]
         self.config.save()
+        self.place_ghost_tab()
+
+    def place_ghost_tab(self):
+        """Expose the other active team as a partially visible ghost tab."""
+        if not self.ghost_team or not self.ghost_accounts:
+            return
+        self.outer.update_idletasks()
+        theme = self.theme
+        ghost = self.ghost_accounts[0]
+        self.ghost_button = ctk.CTkButton(
+            self.outer, text="", image=self.image_for(ghost.get("classe", "Inconnu")),
+            width=30, height=38, corner_radius=9,
+            fg_color=theme.get("panel_alt", "#34495e"), hover_color=theme.get("accent", "#2f80c3"),
+            border_width=1, border_color=theme.get("border", "#78b9e8"),
+            command=lambda team=self.ghost_team: self.on_team_selected(team),
+        )
+        if self.var_vertical.get():
+            x_pos = self.outer.winfo_width() - 14
+            y_pos = max(30, (self.outer.winfo_height() - 38) // 2)
+        elif self.is_on_right_half():
+            x_pos = self.outer.winfo_width() - 14
+            y_pos = max(4, (self.outer.winfo_height() - 38) // 2)
+        else:
+            x_pos = -16
+            y_pos = max(4, (self.outer.winfo_height() - 38) // 2)
+        self.ghost_button.place(x=x_pos, y=y_pos)
+
+    def update_card_states(self):
+        try:
+            foreground = win32gui.GetForegroundWindow()
+        except Exception:
+            foreground = 0
+        theme = self.theme
+        leader_name = self.config.data.get("leader_name", "")
+        gold = "#e5bd5d"
+        for button, account in self.cards:
+            active = account.get("hwnd") == foreground
+            is_leader = account.get("name") == leader_name
+            button.configure(
+                fg_color=theme.get("accent", "#2f80c3") if active else theme.get("panel_alt", "#34495e"),
+                border_color=gold if is_leader else theme.get("border", "#78b9e8") if active else theme.get("panel_alt", "#34495e"),
+                border_width=2 if is_leader or active else 1,
+            )
 
     def poll_active_window(self):
         try:
-            foreground = win32gui.GetForegroundWindow()
-            theme = self.theme
-            for button, account in self.cards:
-                active = account.get("hwnd") == foreground
-                button.configure(
-                    fg_color=theme.get("accent", "#2f80c3") if active else theme.get("panel_alt", "#34495e"),
-                    border_color=theme.get("border", "#78b9e8") if active else theme.get("panel_alt", "#34495e"),
-                    border_width=2 if active else 1,
-                )
+            self.update_card_states()
         except (tk.TclError, Exception):
             pass
         finally:
