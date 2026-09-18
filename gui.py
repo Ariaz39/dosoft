@@ -20,9 +20,13 @@ ctk.set_default_color_theme("blue")
 
 GAME_THEMES = {
     "Unity": {
-        "background": "#1f2933", "panel": "#283845", "panel_alt": "#34495e",
-        "accent": "#2f80c3", "accent_hover": "#3e95d5", "border": "#78b9e8",
-        "title": "#d8efff", "muted": "#b7c9d6",
+        "background": "#111225", "panel": "#20213d", "panel_alt": "#35375c",
+        "accent": "#9ebd05", "accent_hover": "#bfdc1c", "border": "#b9e936",
+        "title": "#f0f0ff", "muted": "#c6c6e8", "banner": "#282948",
+        "toast": "#2a2d4c", "clear": "#a3434d", "clear_hover": "#c95862",
+        "background_image": "unity_arcane_texture.png",
+        "focus_icon": "focus", "volume_icon": "volume",
+        "follow_icon": "follow", "group_icon": "groupe",
     },
     "Rétro": {
         "background": "#2d2822", "panel": "#40382d", "panel_alt": "#554836",
@@ -92,7 +96,7 @@ class SettingsWindow(ctk.CTkToplevel):
         self.scroll_container = ctk.CTkScrollableFrame(self, fg_color="transparent")
         self.scroll_container.pack(fill="both", expand=True, padx=5, pady=5)
         theme = parent_gui.game_theme
-        is_module_theme = self.app.config.data.get("game_version") in ("Wakfu", "Rétro")
+        is_module_theme = self.app.config.data.get("game_version") in ("Unity", "Wakfu", "Rétro")
         input_color = theme["accent"] if is_module_theme else "#3a7ebf"
         input_hover = theme["accent_hover"] if is_module_theme else "#1f538d"
         clear_color = theme.get("clear", "#c0392b") if is_module_theme else "#c0392b"
@@ -161,6 +165,17 @@ class SettingsWindow(ctk.CTkToplevel):
         )
         self.menu_wakfu_theme.pack(side="right", padx=8, pady=8)
 
+        self.frame_unity_theme = ctk.CTkFrame(self.scroll_container)
+        self.frame_unity_theme.pack(fill="x", padx=10, pady=5)
+        self.lbl_unity_theme = ctk.CTkLabel(self.frame_unity_theme, text="Thème UNITY")
+        self.lbl_unity_theme.pack(side="left", padx=8, pady=8)
+        self.var_unity_theme = ctk.StringVar(value=str(self.app.config.data.get("unity_theme", "1")))
+        self.menu_unity_theme = ctk.CTkOptionMenu(
+            self.frame_unity_theme, values=["1"], variable=self.var_unity_theme,
+            command=self.on_unity_theme_change,
+        )
+        self.menu_unity_theme.pack(side="right", padx=8, pady=8)
+
         self.frame_retro_theme = ctk.CTkFrame(self.scroll_container)
         self.frame_retro_theme.pack(fill="x", padx=10, pady=5)
         self.lbl_retro_theme = ctk.CTkLabel(self.frame_retro_theme, text="Thème Rétro")
@@ -215,6 +230,7 @@ class SettingsWindow(ctk.CTkToplevel):
         self.app.config.data["language"] = self.var_language.get()
         self.app.config.data["keyboard_layout"] = self.var_keyboard_layout.get()
         self.app.config.data["wakfu_theme"] = self.var_wakfu_theme.get()
+        self.app.config.data["unity_theme"] = self.var_unity_theme.get()
         self.app.config.data["retro_theme"] = self.var_retro_theme.get()
         self.app.i18n.set_locale(self.var_language.get())
         self.app.keymaps.set_layout(self.var_keyboard_layout.get())
@@ -229,6 +245,9 @@ class SettingsWindow(ctk.CTkToplevel):
             self.title(self.app.i18n.t("settings_title", "⚙️ Paramètres"))
 
     def on_wakfu_theme_change(self, _choice):
+        self.save_settings()
+
+    def on_unity_theme_change(self, _choice):
         self.save_settings()
 
     def on_retro_theme_change(self, _choice):
@@ -256,6 +275,7 @@ class SettingsWindow(ctk.CTkToplevel):
         self.lbl_hk.configure(text=self.app.i18n.t("settings_hotkey", "Raccourci :"))
         self.lbl_wakfu_autofocus.configure(text="Auto-Focus WAKFU")
         self.lbl_wakfu_theme.configure(text="Thème WAKFU")
+        self.lbl_unity_theme.configure(text="Thème UNITY")
         self.lbl_retro_theme.configure(text="Thème Rétro")
         self.lbl_language.configure(text=self.app.i18n.t("settings_language", "Langue"))
         self.lbl_keyboard.configure(text=self.app.i18n.t("settings_keyboard_layout", "Disposition clavier"))
@@ -310,8 +330,8 @@ class OrganizerGUI:
         self.hotkey_labels = {}
         self.tooltip_i18n_map = {}
 
-        # Fond discret pour WAKFU : il reste visible dans les respirations entre
-        # les cartes et évite l'effet de panneaux posés sur un aplat vide.
+        # Fond texturé, réservé aux trois moteurs pour donner de la profondeur
+        # aux respirations entre les cartes.
         self.wakfu_background_texture = None
         texture_path = resource_path(
             "resources", "skin", self.game_theme.get("background_image", "wakfu_panel_texture.png")
@@ -345,8 +365,8 @@ class OrganizerGUI:
         self.bind_i18n_tooltip(self.btn_off, "tooltip_off", "Fermer complètement DOSOFT")
         # --------------------------
 
-        # Bandeau du module WAKFU : la texture est une ressource originale de DOSOFT,
-        # uniquement utilisée pour installer une identité visuelle au module.
+        # Bandeau partagé des trois moteurs, avec une direction artistique propre
+        # à chaque thème.
         self.frame_module_banner = ctk.CTkFrame(
             self.root, height=58, corner_radius=9, fg_color="#172126",
         )
@@ -533,7 +553,7 @@ class OrganizerGUI:
         self.apply_game_theme()
 
     def refresh_module_theme_images(self):
-        """Reload game-theme backgrounds when the cosmetic theme changes."""
+        """Reload the selected engine's background and banner textures."""
         image_name = self.game_theme.get("background_image", "wakfu_panel_texture.png")
         path = resource_path("resources", "skin", image_name)
         if not os.path.exists(path):
@@ -558,9 +578,10 @@ class OrganizerGUI:
         """Apply the visual module associated with the selected game engine."""
         version = self.app.config.data.get("game_version", "Unity")
         theme = selected_game_theme(self.app.config.data)
+        is_unity = version == "Unity"
         is_wakfu = version == "Wakfu"
         is_retro = version == "Rétro"
-        has_module_theme = is_wakfu or is_retro
+        has_module_theme = is_unity or is_wakfu or is_retro
         self.game_theme = theme
         if has_module_theme:
             self.refresh_module_theme_images()
@@ -623,7 +644,9 @@ class OrganizerGUI:
             self.frame_module_banner.configure(
                 fg_color=theme.get("banner", theme["panel"]), border_width=1, border_color=theme["border"]
             )
-            self.lbl_module_title.configure(text="WAKFU" if is_wakfu else "DOFUS RÉTRO")
+            self.lbl_module_title.configure(
+                text="WAKFU" if is_wakfu else "DOFUS RÉTRO" if is_retro else "DOFUS UNITY"
+            )
             self.lbl_module_subtitle.configure(text="GESTION DE GROUPE")
             self.lbl_module_title.configure(text_color=theme["title"])
             self.lbl_module_subtitle.configure(text_color=theme["muted"])
@@ -884,7 +907,7 @@ class OrganizerGUI:
         
         self.hotkey_btns[config_key] = btn 
         
-        is_module_theme = self.app.config.data.get("game_version") in ("Wakfu", "Rétro")
+        is_module_theme = self.app.config.data.get("game_version") in ("Unity", "Wakfu", "Rétro")
         theme = getattr(self, "game_theme", GAME_THEMES["Unity"])
         btn_x = ctk.CTkButton(
             parent, text="✖", width=25,
