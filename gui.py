@@ -7,7 +7,6 @@ import time
 import win32api
 import win32con
 import os
-import webbrowser
 from PIL import Image, ImageTk, ImageDraw
 from i18n_manager import I18nManager
 from config_manager import Config
@@ -397,14 +396,9 @@ class OrganizerGUI:
         self.btn_settings.pack(side="right")
         self.bind_i18n_tooltip(self.btn_settings, "tooltip_settings", "Paramétrer la roue radiale")
 
-        self.btn_tuto = ctk.CTkButton(self.header_f, text=self.app.i18n.t("header_tutorial", "🎓 Tuto"), fg_color="#8e44ad", hover_color="#9b59b6", width=80, command=self.launch_tutorial)
-        self.btn_tuto.pack(side="right", padx=(0, 10))
-
-        # --- NOUVEAU BOUTON OFF ---
         self.btn_off = ctk.CTkButton(self.header_f, text=self.app.i18n.t("header_off", "🔴 OFF"), fg_color="#c0392b", hover_color="#e74c3c", width=60, command=self.app.quit_app)
         self.btn_off.pack(side="right", padx=(0, 10))
         self.bind_i18n_tooltip(self.btn_off, "tooltip_off", "Fermer complètement DOSOFT")
-        # --------------------------
 
         # Bandeau partagé des trois moteurs, avec une direction artistique propre
         # à chaque thème.
@@ -648,12 +642,11 @@ class OrganizerGUI:
         self.lbl_keyboard_shortcuts.configure(text_color=theme["title"])
         self.lbl_volume.configure(text_color=theme["muted"])
         self.btn_settings.configure(fg_color=theme["panel_alt"], hover_color=theme["accent"])
-        self.btn_tuto.configure(fg_color=theme["accent"], hover_color=theme["accent_hover"])
         self.btn_refresh.configure(fg_color=theme["accent"], hover_color=theme["accent_hover"])
         self.btn_sort_win.configure(fg_color=theme["panel_alt"], hover_color=theme["accent"])
         self.btn_manage_binds.configure(fg_color=theme["panel_alt"], hover_color=theme["accent"])
         for button in (
-            self.btn_settings, self.btn_tuto, self.btn_refresh, self.btn_sort_win,
+            self.btn_settings, self.btn_refresh, self.btn_sort_win,
             self.btn_manage_binds, self.btn_close_all, self.btn_reset,
         ):
             button.configure(corner_radius=10 if has_module_theme else 6)
@@ -708,7 +701,6 @@ class OrganizerGUI:
         self.root.title(APP_TITLE)
         self.lbl_app_title.configure(text=APP_TITLE)
         self.btn_settings.configure(text=self.app.i18n.t("header_settings", "⚙️ Paramètres"))
-        self.btn_tuto.configure(text=self.app.i18n.t("header_tutorial", "🎓 Tuto"))
         self.btn_off.configure(text=self.app.i18n.t("header_off", "🔴 OFF"))
         self.lbl_controls.configure(text=self.app.i18n.t("label_controls", "Contrôler :"))
         self.lbl_versions.configure(text=self.app.i18n.t("label_versions", "Versions :"))
@@ -739,16 +731,6 @@ class OrganizerGUI:
             self.settings_window.deiconify()
             self.settings_window.lift()
             self.settings_window.focus_force()
-
-    def launch_tutorial(self):
-        
-        if not self.app.config.data.get("tutorial_done", False):
-            self.app.config.data["tutorial_done"] = True
-            self.app.config.save()
-
-        rep = messagebox.askyesno(self.app.i18n.t("dialog_tutorial_title", "Tutoriel Vidéo"), self.app.i18n.t("dialog_tutorial_text", "Voulez-vous ouvrir la vidéo de présentation sur YouTube dans votre navigateur web ?"))
-        if rep:
-            webbrowser.open("")
 
     def toggle_from_tray(self, icon, item):
         """ Demande à l'interface de s'afficher ou de se cacher proprement """
