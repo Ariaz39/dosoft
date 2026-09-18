@@ -242,6 +242,7 @@ class CharacterQuickBar:
 
         if not self.accounts:
             ctk.CTkLabel(cards_frame, text="Aucun personnage détecté", text_color=muted).pack(padx=12, pady=7)
+            self.fit_window_to_content(self.window, self.outer)
             self.reanchor_after_resize(was_visible, old_x, old_y, old_width, old_height)
             self.window.update_idletasks()
             self.apply_rounded_shape(self.window)
@@ -271,6 +272,7 @@ class CharacterQuickBar:
             card.bind("<Enter>", lambda _event, button=card: button.configure(border_color=border))
             card.bind("<Leave>", lambda _event, button=card: button.configure(border_color=panel_alt))
             self.cards.append((card, account))
+        self.fit_window_to_content(self.window, self.outer)
         self.reanchor_after_resize(was_visible, old_x, old_y, old_width, old_height)
         self.window.update_idletasks()
         self.apply_rounded_shape(self.window)
@@ -338,8 +340,17 @@ class CharacterQuickBar:
                 command=lambda team=self.ghost_team: self.on_team_selected(team),
             )
             card.pack(side="top" if is_vertical else "left", padx=2, pady=2)
-        self.ghost_window.update_idletasks()
+        self.fit_window_to_content(self.ghost_window, self.ghost_outer)
         self.sync_ghost_bar()
+
+    @staticmethod
+    def fit_window_to_content(window, content):
+        """Remove unused popup surface left by a previous larger layout."""
+        content.update_idletasks()
+        width = max(1, content.winfo_reqwidth() + 2)
+        height = max(1, content.winfo_reqheight() + 2)
+        window.geometry(f"{width}x{height}+{window.winfo_x()}+{window.winfo_y()}")
+        window.update_idletasks()
 
     def sync_ghost_bar(self):
         """Place the ghost under, and offset by half, the main quick bar."""
