@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import tkinter as tk
 import ctypes
+from datetime import datetime
 
 import customtkinter as ctk
 import win32gui
@@ -37,8 +38,13 @@ class CharacterQuickBar:
         self.cards = []
         self._drag_origin = None
         self._last_foreground = None
+        self._last_observed_foreground = None
         self._transitioning = False
         self._pending_foreground = 0
+        self.debug_path = os.environ.get(
+            "DOSOFT_QUICKBAR_DEBUG_LOG",
+            os.path.join(os.path.dirname(os.path.abspath(config.filename)), "quickbar-debug.log"),
+        )
         self.var_vertical = ctk.BooleanVar(value=config.data.get("character_bar_vertical", False))
 
         self.window = ctk.CTkToplevel(parent_root)
@@ -74,6 +80,16 @@ class CharacterQuickBar:
         self.ghost_content = ctk.CTkFrame(self.ghost_outer, width=1, fg_color="transparent")
         self.ghost_content.pack(padx=5, pady=5)
         self.parent_root.after(250, self.poll_active_window)
+        self.debug("initialisation")
+
+    def debug(self, message):
+        """Append quick-bar diagnostics to the isolated beta-data folder."""
+        try:
+            stamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+            with open(self.debug_path, "a", encoding="utf-8") as log:
+                log.write(f"[{stamp}] {message}\n")
+        except OSError:
+            pass
 
     def update_theme(self, theme, engine):
         self.theme = dict(theme)
@@ -140,6 +156,7 @@ class CharacterQuickBar:
         self.window.geometry(f"+{x_pos}+{y_pos}")
 
     def start_drag(self, event):
+        self.debug(f"drag:start x={self.window.winfo_x()} y={self.window.winfo_y()}")
         self._drag_origin = (event.x_root, event.y_root, self.window.winfo_x(), self.window.winfo_y())
 
     def drag(self, event):
@@ -154,6 +171,7 @@ class CharacterQuickBar:
         self.config.data["character_bar_position"] = [self.window.winfo_x(), self.window.winfo_y()]
         self.config.save()
         self.sync_ghost_bar()
+        self.debug(f"drag:end x={self.window.winfo_x()} y={self.window.winfo_y()}")
 
     def image_for(self, class_name):
         class_filename = (class_name or "Inconnu").removesuffix("_retro").lower()
@@ -343,14 +361,14 @@ class CharacterQuickBar:
         self.fit_window_to_content(self.ghost_window, self.ghost_outer)
         self.sync_ghost_bar()
 
-    @staticmethod
-    def fit_window_to_content(window, content):
+    def fit_window_to_content(self, window, content):
         """Remove unused popup surface left by a previous larger layout."""
         content.update_idletasks()
         width = max(1, content.winfo_reqwidth() + 2)
         height = max(1, content.winfo_reqheight() + 2)
         window.geometry(f"{width}x{height}+{window.winfo_x()}+{window.winfo_y()}")
         window.update_idletasks()
+        self.debug(f"taille {width}x{height} fenêtre={window.winfo_id()} contenu={content.winfo_width()}x{content.winfo_height()}")
 
     def sync_ghost_bar(self):
         """Place the ghost under, and offset by half, the main quick bar."""
@@ -377,8 +395,7 @@ class CharacterQuickBar:
         self.window.lift()
         self.window.attributes("-topmost", True)
 
-    @staticmethod
-    def apply_rounded_shape(window):
+    def apply_rounded_shape(self, window):
         """Clip a borderless Windows popup to its rounded module outline.
 
         `-transparentcolor` conflicts with the alpha compositing used by the
@@ -391,7 +408,8 @@ class CharacterQuickBar:
             if width < 2 or height < 2:
                 return
             region = ctypes.windll.gdi32.CreateRoundRectRgn(0, 0, width + 1, height + 1, 28, 28)
-            ctypes.windll.user32.SetWindowRgn(window.winfo_id(), region, True)
+            result = ctypes.windll.user32.SetWindowRgn(window.winfo_id(), region, True)
+            self.debug(f"forme hwnd={window.winfo_id()} taille={width}x{height} résultat={result}")
         except Exception:
             pass
 
@@ -400,10 +418,18 @@ class CharacterQuickBar:
             foreground = win32gui.GetForegroundWindow()
         except Exception:
             foreground = 0
+        if foreground != self._last_observed_foreground:
+            self._last_observed_foreground = foreground
+            self.debug(f"focus observé hwnd={foreground}")
+        tracked_windows = {account.get("hwnd") for _, account in self.cards}
+        # Interacting with DOSOFT itself must not repaint the overlaid bars.
+        if foreground not in tracked_windows:
+            return
         if foreground == self._last_foreground:
             return
         self._last_foreground = foreground
         self._pending_foreground = foreground
+        self.debug(f"focus jeu hwnd={foreground}; visible={self.window.winfo_viewable()}")
         if self.window.winfo_viewable() and not self._transitioning:
             self.soft_refresh_cards()
             return
@@ -430,6 +456,7 @@ class CharacterQuickBar:
         when CustomTkinter repaints two overlapping borderless windows.
         """
         self._transitioning = True
+        self.debug("transition: masquage")
         self.ghost_window.withdraw()
         self.window.withdraw()
         self.parent_root.after(70, self.finish_soft_refresh)
@@ -442,6 +469,7 @@ class CharacterQuickBar:
                 self.apply_rounded_shape(self.window)
                 self.window.lift()
                 self.sync_ghost_bar()
+            self.debug("transition: affichage")
         finally:
             self._transitioning = False
 

@@ -9,6 +9,8 @@ beta_data_dir = Path(__file__).resolve().parent / ".beta-data"
 beta_data_dir.mkdir(exist_ok=True)
 os.environ["DOSOFT_SETTINGS_FILE"] = str(beta_data_dir / "settings.json")
 os.environ["DOSOFT_WAKFU_DEBUG_LOG"] = str(beta_data_dir / "wakfu-autofocus-debug.log")
+os.environ["DOSOFT_QUICKBAR_DEBUG_LOG"] = str(beta_data_dir / "quickbar-debug.log")
+(beta_data_dir / "quickbar-debug.log").write_text("", encoding="utf-8")
 os.environ["DOSOFT_APP_TITLE"] = "BETA DOSOFT 1.3"
 
 # Le venv Python 3.13 utilisé pour la bêta ne transporte pas Tcl/Tk ; on
