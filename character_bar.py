@@ -41,7 +41,9 @@ class CharacterQuickBar:
         self.window.resizable(False, False)
         self.window.protocol("WM_DELETE_WINDOW", self.hide_from_bar)
 
-        self.outer = ctk.CTkFrame(self.window, corner_radius=14, border_width=1)
+        # Default CustomTkinter frames request 200 px.  A tiny base width lets
+        # the vertical layout contract to the portraits instead.
+        self.outer = ctk.CTkFrame(self.window, width=1, corner_radius=14, border_width=1)
         self.outer.pack(padx=1, pady=1)
 
         self.handle = ctk.CTkFrame(self.outer, height=25, corner_radius=10)
@@ -64,7 +66,7 @@ class CharacterQuickBar:
             widget.bind("<B1-Motion>", self.drag)
             widget.bind("<ButtonRelease-1>", self.end_drag)
 
-        self.content = ctk.CTkFrame(self.outer, fg_color="transparent")
+        self.content = ctk.CTkFrame(self.outer, width=1, fg_color="transparent")
         self.content.pack(padx=5, pady=(1, 5))
         self.parent_root.after(250, self.poll_active_window)
 
@@ -94,6 +96,7 @@ class CharacterQuickBar:
         self.on_visibility_changed(False)
 
     def toggle_orientation(self):
+        self.var_vertical.set(not self.var_vertical.get())
         self.config.data["character_bar_vertical"] = self.var_vertical.get()
         self.config.save()
         self.rebuild()

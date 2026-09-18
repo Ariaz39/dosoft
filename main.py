@@ -76,6 +76,8 @@ class OrganizerApp:
         self.character_bar.update_theme(
             self.gui.game_theme, self.config.data.get("game_version", "Unity")
         )
+        if self.config.data.get("character_bar_visible", False):
+            self.character_bar.set_visible(True)
         self.current_idx = 0
         self.hotkey_actions = {} 
         self.mouse_hotkeys = {}
