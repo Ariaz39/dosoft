@@ -46,28 +46,10 @@ class CharacterQuickBar:
         self.outer = ctk.CTkFrame(self.window, width=1, corner_radius=14, border_width=1)
         self.outer.pack(padx=1, pady=1)
 
-        self.handle = ctk.CTkFrame(self.outer, height=25, corner_radius=10)
-        self.handle.pack(fill="x", padx=5, pady=(5, 2))
-        self.handle.pack_propagate(False)
         self.cross_image = self.load_menu_icon("croix.png")
         self.up_image = self.load_menu_icon("up.png")
-        self.orientation_button = ctk.CTkButton(
-            self.handle, text="", image=self.up_image, width=24, height=20,
-            corner_radius=7, command=self.toggle_orientation,
-        )
-        self.orientation_button.pack(side="right", padx=(2, 3), pady=2)
-        self.hide_button = ctk.CTkButton(
-            self.handle, text="", image=self.cross_image, width=24, height=20, corner_radius=7,
-            command=self.hide_from_bar,
-        )
-        self.hide_button.pack(side="right", padx=3, pady=2)
-        for widget in (self.handle,):
-            widget.bind("<ButtonPress-1>", self.start_drag)
-            widget.bind("<B1-Motion>", self.drag)
-            widget.bind("<ButtonRelease-1>", self.end_drag)
-
         self.content = ctk.CTkFrame(self.outer, width=1, fg_color="transparent")
-        self.content.pack(padx=5, pady=(1, 5))
+        self.content.pack(padx=5, pady=5)
         self.parent_root.after(250, self.poll_active_window)
 
     def update_theme(self, theme, engine):
@@ -150,6 +132,40 @@ class CharacterQuickBar:
         except Exception:
             return None
 
+    def is_on_right_half(self):
+        saved = self.config.data.get("character_bar_position", [])
+        x_pos = saved[0] if isinstance(saved, list) and len(saved) == 2 else self.window.winfo_x()
+        return x_pos + self.window.winfo_width() / 2 > self.window.winfo_screenwidth() / 2
+
+    def create_controls(self, parent, theme):
+        """Create an icon-only compact control strip with a small drag grip."""
+        panel = theme.get("panel", "#283845")
+        accent = theme.get("accent", "#2f80c3")
+        border = theme.get("border", "#78b9e8")
+        controls = ctk.CTkFrame(parent, width=1, height=46, corner_radius=10, fg_color=panel)
+        drag_grip = ctk.CTkFrame(controls, width=6, height=28, corner_radius=3, fg_color=theme.get("panel_alt", panel))
+        drag_grip.pack(side="left", padx=(4, 2), pady=9)
+        for widget in (drag_grip,):
+            widget.bind("<ButtonPress-1>", self.start_drag)
+            widget.bind("<B1-Motion>", self.drag)
+            widget.bind("<ButtonRelease-1>", self.end_drag)
+        self.hide_button = ctk.CTkButton(
+            controls, text="", image=self.cross_image, width=24, height=22, corner_radius=7,
+            fg_color=theme.get("clear", "#a3434d"), hover_color=theme.get("clear_hover", "#c95862"),
+            command=self.hide_from_bar,
+        )
+        self.hide_button.pack(side="left", padx=2, pady=10)
+        self.orientation_button = ctk.CTkButton(
+            controls, text="", image=self.up_image, width=24, height=22, corner_radius=7,
+            fg_color=accent if self.var_vertical.get() else panel,
+            hover_color=theme.get("accent_hover", accent),
+            border_width=1 if self.var_vertical.get() else 0,
+            border_color=border if self.var_vertical.get() else panel,
+            command=self.toggle_orientation,
+        )
+        self.orientation_button.pack(side="left", padx=(2, 4), pady=10)
+        return controls
+
     def rebuild(self):
         if not self.theme:
             return
@@ -169,28 +185,31 @@ class CharacterQuickBar:
         muted = theme.get("muted", "#b7c9d6")
         self.window.configure(fg_color=theme.get("background", panel))
         self.outer.configure(fg_color=panel, border_color=border)
-        self.handle.configure(fg_color=panel_alt)
-        self.hide_button.configure(fg_color=theme.get("clear", "#a3434d"), hover_color=theme.get("clear_hover", "#c95862"))
-        self.orientation_button.configure(
-            fg_color=accent if self.var_vertical.get() else panel,
-            hover_color=theme.get("accent_hover", accent),
-            border_width=1 if self.var_vertical.get() else 0,
-            border_color=border if self.var_vertical.get() else panel,
-        )
+        is_vertical = self.var_vertical.get()
+        controls = self.create_controls(self.content, theme)
+        cards_frame = ctk.CTkFrame(self.content, width=1, fg_color="transparent")
+        if is_vertical:
+            controls.pack(side="top", anchor="center", pady=(0, 3))
+            cards_frame.pack(side="top", anchor="center")
+        elif self.is_on_right_half():
+            controls.pack(side="left", pady=2)
+            cards_frame.pack(side="left")
+        else:
+            cards_frame.pack(side="left")
+            controls.pack(side="right", pady=2)
 
         if not self.accounts:
-            ctk.CTkLabel(self.content, text="Aucun personnage détecté", text_color=muted).pack(padx=12, pady=7)
+            ctk.CTkLabel(cards_frame, text="Aucun personnage détecté", text_color=muted).pack(padx=12, pady=7)
             self.reanchor_after_resize(was_visible, old_x, old_y, old_width, old_height)
             return
 
         # Up to 14 characters keep the intended generous spacing.  Above that,
         # cards contract slightly so every detected account remains available.
         total = len(self.accounts)
-        is_vertical = self.var_vertical.get()
         card_width = 47 if total <= self.MAX_COMFORTABLE_CELLS else max(38, 658 // total)
         for account in self.accounts:
             card = ctk.CTkButton(
-                self.content,
+                cards_frame,
                 text="",
                 image=self.image_for(account.get("classe", "Inconnu")),
                 width=card_width,
