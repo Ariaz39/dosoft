@@ -6,6 +6,7 @@
 #include <obs-module.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <fstream>
 #include <mutex>
@@ -103,6 +104,68 @@ bool capture_ready(obs_sceneitem_t *item)
 {
 	obs_source_t *source = obs_sceneitem_get_source(item);
 	return source && obs_source_get_width(source) > 0 && obs_source_get_height(source) > 0;
+}
+
+bool nearly_equal(float left, float right, float tolerance = 0.01f)
+{
+	return std::fabs(left - right) <= tolerance;
+}
+
+bool empty_crop(const obs_sceneitem_crop &crop)
+{
+	return crop.left == 0 && crop.top == 0 && crop.right == 0 && crop.bottom == 0;
+}
+
+bool unity_layout_can_be_auto_fitted(const obs_transform_info &transform,
+				     const obs_sceneitem_crop &crop)
+{
+	if (!empty_crop(crop) || transform.bounds_type != OBS_BOUNDS_NONE ||
+	    !nearly_equal(transform.rot, 0.0f) || !nearly_equal(transform.pos.x, 0.0f, 1.0f) ||
+	    !nearly_equal(transform.pos.y, 0.0f, 1.0f))
+		return false;
+
+	const bool finite_scale = std::isfinite(transform.scale.x) && std::isfinite(transform.scale.y);
+	const bool untouched_scale = nearly_equal(transform.scale.x, 1.0f) &&
+				     nearly_equal(transform.scale.y, 1.0f);
+	const bool pathological_scale = !finite_scale || std::fabs(transform.scale.x) >= 2.0f ||
+					 std::fabs(transform.scale.y) >= 2.0f ||
+					 nearly_equal(transform.scale.x, 0.0f) ||
+					 nearly_equal(transform.scale.y, 0.0f);
+	return untouched_scale || pathological_scale;
+}
+
+bool auto_fit_unity_capture(obs_sceneitem_t *item, const std::string &capture_name)
+{
+	if (!item)
+		return false;
+	obs_video_info video{};
+	if (!obs_get_video_info(&video) || !video.base_width || !video.base_height)
+		return false;
+
+	obs_transform_info transform{};
+	obs_sceneitem_crop crop{};
+	obs_sceneitem_get_info2(item, &transform);
+	obs_sceneitem_get_crop(item, &crop);
+	if (!unity_layout_can_be_auto_fitted(transform, crop))
+		return false;
+
+	// Bounds scale dynamically when the Unity client changes resolution. This
+	// avoids the 200/300% crop produced by a native 4K game source on a 1080p
+	// OBS canvas while preserving the complete image and its aspect ratio.
+	transform.pos.x = static_cast<float>(video.base_width) / 2.0f;
+	transform.pos.y = static_cast<float>(video.base_height) / 2.0f;
+	transform.rot = 0.0f;
+	transform.scale.x = 1.0f;
+	transform.scale.y = 1.0f;
+	transform.alignment = OBS_ALIGN_CENTER;
+	transform.bounds_type = OBS_BOUNDS_SCALE_INNER;
+	transform.bounds_alignment = OBS_ALIGN_CENTER;
+	transform.bounds.x = static_cast<float>(video.base_width);
+	transform.bounds.y = static_cast<float>(video.base_height);
+	obs_sceneitem_set_info2(item, &transform);
+	swap_debug("UNITY_AUTO_FIT capture=" + capture_name + " canvas=" +
+		   std::to_string(video.base_width) + "x" + std::to_string(video.base_height));
+	return true;
 }
 
 struct ManagedCaptureContext {
@@ -652,6 +715,10 @@ bool SceneGuard::ensure_capture_in_game_scene(const ActiveGameInstance &account)
 			if (item)
 				obs_sceneitem_set_visible(item, false);
 		}
+	}
+	if (!uses_window_capture) {
+		obs_sceneitem_t *unity_item = obs_scene_find_source(game_scene, capture_name.c_str());
+		auto_fit_unity_capture(unity_item, capture_name);
 	}
 	prewarm_capture(capture, capture_name);
 	swap_debug("SYNC_CAPTURE client=" + account.client_id + " account=" + account.account);

@@ -14,7 +14,10 @@ les scènes et sources, créer la scène Dofus puis recevoir la confirmation OBS
 
 ## Captures par moteur
 
-- Unity : `game_capture`, scène `Jeu_Dofus_Unity`.
+- Unity : `game_capture`, scène `Jeu_Dofus_Unity`. Une capture encore à sa
+  transformation par défaut est automatiquement centrée et ajustée aux
+  dimensions du canevas OBS, proportions conservées. Les cadrages déjà
+  déplacés, rognés ou redimensionnés manuellement restent inchangés.
 - Dofus Rétro : `window_capture` en Windows Graphics Capture, scène par défaut
   `Jeu_Dofus_Rétro`.
 - Wakfu : `window_capture` en Windows Graphics Capture, scène `Jeu_Wakfu`
