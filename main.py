@@ -330,8 +330,10 @@ class OrganizerApp:
                 self.obs_stream_dock = ObsStreamDock(self.gui.root, self.obs_bridge)
                 dock = self.obs_stream_dock
             dock.rebuild_buttons()
-            dock.show_and_recover()
-            self.obs_bridge._record("DOCK : affiché")
+            # rebuild_buttons performs one atomic fit/show after Tk has measured
+            # the new controls. Showing here would expose the old native frame
+            # for a few milliseconds before the final geometry is applied.
+            self.obs_bridge._record("DOCK : reconstruction demandée")
         elif dock is not None:
             dock.withdraw()
             self.obs_bridge._record("DOCK : masqué")

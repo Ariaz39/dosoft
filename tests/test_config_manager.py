@@ -72,6 +72,19 @@ class ConfigPersistenceTests(unittest.TestCase):
             self.assertEqual(config.data["quit_key"], "")
             self.assertTrue(config.data["hide_ui_f12_1_3_8"])
 
+    def test_fast_switch_is_forced_off_while_feature_is_withdrawn(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "settings.json"
+            path.write_text(json.dumps({
+                "fast_switch_team_disabled": False,
+                "team_switch_key": "ctrl+t",
+            }), encoding="utf-8")
+
+            config = Config(path, legacy_paths=[])
+
+            self.assertTrue(config.data["fast_switch_team_disabled"])
+            self.assertEqual(config.data["team_switch_key"], "ctrl+t")
+
     def test_save_failure_is_reported_to_registered_handler(self):
         with tempfile.TemporaryDirectory() as directory:
             config = Config(Path(directory) / "settings.json", legacy_paths=[])

@@ -74,6 +74,38 @@ class FocusSwitchPerformanceTests(unittest.TestCase):
         bar.update_card_states.assert_not_called()
         bar.parent_root.after.assert_called_once_with(250, bar.poll_active_window)
 
+    def test_compact_mode_restores_an_enabled_bar_without_retoggle(self):
+        bar = CharacterQuickBar.__new__(CharacterQuickBar)
+        bar.config = SimpleNamespace(data={"character_bar_visible": True})
+        bar.parent_root = SimpleNamespace(after_idle=Mock(), after=Mock())
+        bar._layout_transition_token = 4
+        bar._pending_signature = ("stale",)
+        bar._transitioning = True
+        bar.refresh_layout_immediately = Mock()
+        bar.set_visible = Mock()
+
+        bar.restore_after_presentation_change()
+
+        self.assertEqual(bar._layout_transition_token, 5)
+        self.assertIsNone(bar._pending_signature)
+        self.assertFalse(bar._transitioning)
+        bar.refresh_layout_immediately.assert_called_once_with()
+        bar.parent_root.after_idle.assert_called_once()
+        bar.parent_root.after.assert_called_once()
+
+    def test_orientation_change_uses_atomic_visible_rebuild(self):
+        bar = CharacterQuickBar.__new__(CharacterQuickBar)
+        bar.var_vertical = Mock()
+        bar.var_vertical.get.side_effect = [False, True]
+        bar.config = SimpleNamespace(data={}, save=Mock(return_value=True))
+        bar.restore_after_presentation_change = Mock()
+
+        bar.toggle_orientation()
+
+        bar.var_vertical.set.assert_called_once_with(True)
+        self.assertTrue(bar.config.data["character_bar_vertical"])
+        bar.restore_after_presentation_change.assert_called_once_with()
+
 
 if __name__ == "__main__":
     unittest.main()

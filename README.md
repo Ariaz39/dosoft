@@ -33,5 +33,11 @@ Vous pouvez tout build via "build.cmd" et inno setup en utilisant setup.iss pour
 ## Releases
 Les versions précompilées (fichiers .exe) sont disponibles dans la section "Releases" du dépôt. Téléchargez la release souhaitée si vous ne voulez pas compiler vous‑même.
 
+## Notice utilisateur
+
+La notice complète de DOSOFT 1.3.8 bêta, présentée sous forme d'interview et
+incluant le connecteur OBS, est disponible dans
+[`docs/NOTICE_UTILISATEUR_1.3.8_BETA.md`](docs/NOTICE_UTILISATEUR_1.3.8_BETA.md).
+
 ## Licence & contribution
 Voir le fichier `LICENSE` pour les détails de licence. Les contributions sont les bienvenues via des issues et des pull requests.

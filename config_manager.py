@@ -52,7 +52,7 @@ class Config:
             "character_bar_position": [],
             "character_bar_vertical": False,
             "character_bar_compact": False,
-            "fast_switch_team_disabled": False,
+            "fast_switch_team_disabled": True,
             "team_switch_key": "",
             "volume_level": 50,
             "tutorial_done": False,
@@ -164,6 +164,12 @@ class Config:
 
     def _migrate_values(self, loaded):
         changed = False
+        # Fast Switch TEAM is temporarily withdrawn while its window-stacking
+        # model is redesigned. Preserve the configured shortcut for later, but
+        # force the runtime feature off for existing profiles as well.
+        if not self.data.get("fast_switch_team_disabled", False):
+            self.data["fast_switch_team_disabled"] = True
+            changed = True
         if (not loaded.get("shortcut_repair_1_3_6")
                 and not any(loaded.get(key) for key in ("prev_key", "next_key", "leader_key"))):
             self.data.update({

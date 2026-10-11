@@ -438,7 +438,13 @@ class ObsSettingsWindow(ctk.CTkToplevel):
 
         ctk.CTkSwitch(body, text=ui_text(self.app, "obs_switch_autoswap", "Auto-swap des clients Dofus"), variable=self.auto).pack(anchor="w", padx=8, pady=(10, 3))
         ctk.CTkSwitch(body, text=ui_text(self.app, "obs_switch_fallback", "Utiliser une scène de secours"), variable=self.fallback).pack(anchor="w", padx=8, pady=3)
-        ctk.CTkSwitch(body, text=ui_text(self.app, "obs_switch_streamdeck", "Afficher le Streamdeck"), variable=self.dock).pack(anchor="w", padx=8, pady=3)
+        self.streamdeck_switch = ctk.CTkSwitch(
+            body,
+            text=ui_text(self.app, "obs_switch_streamdeck", "Afficher le Streamdeck"),
+            variable=self.dock,
+            command=self.toggle_streamdeck_immediately,
+        )
+        self.streamdeck_switch.pack(anchor="w", padx=8, pady=3)
         ctk.CTkSwitch(body, text=ui_text(self.app, "obs_switch_diagnostics", "Activer les journaux de diagnostic"), variable=self.diagnostics).pack(anchor="w", padx=8, pady=3)
 
         ctk.CTkButton(body, text=ui_text(self.app, "obs_step_link", "2. Créer et relier la scène Dofus"), command=self.apply_setup).pack(fill="x", padx=8, pady=(14, 4))
@@ -643,6 +649,31 @@ class ObsSettingsWindow(ctk.CTkToplevel):
                 self.app, "obs_save_failed", "Échec de l'enregistrement local : {error}", error=error,
             ))
             return False
+        return True
+
+    def toggle_streamdeck_immediately(self):
+        """Persist and apply the dock switch without waiting for the form save.
+
+        The Streamdeck is an independent optional window. Requiring the user to
+        click the profile save button after enabling it made the switch appear
+        broken and left no persistent state after closing the assistant.
+        """
+        enabled = bool(self.dock.get())
+        profile = self.app.obs_bridge.profile
+        previous = bool(profile.data.get("dock_enabled", False))
+        profile.data["dock_enabled"] = enabled
+        if not profile.save():
+            profile.data["dock_enabled"] = previous
+            self.dock.set(previous)
+            self.status.configure(text=profile.last_error)
+            return False
+        self.app.refresh_obs_stream_dock()
+        self.status.configure(text=ui_text(
+            self.app,
+            "obs_streamdeck_enabled" if enabled else "obs_streamdeck_disabled",
+            "Streamdeck activé et enregistré localement."
+            if enabled else "Streamdeck désactivé et enregistré localement.",
+        ))
         return True
 
     def apply_setup(self):
@@ -911,11 +942,10 @@ class SettingsWindow(ctk.CTkToplevel):
         # Fast Switch TEAM only controls the translucent companion bar; the
         # normal Team 1 / Team 2 selector always remains available.
         self.frame_fast_switch_team = ctk.CTkFrame(self.scroll_container)
-        self.frame_fast_switch_team.pack(fill="x", padx=10, pady=5)
         self.lbl_fast_switch_team = ctk.CTkLabel(self.frame_fast_switch_team, text=ui_text(self.app, "settings_fast_switch", "Fast Switch TEAM"))
         self.lbl_fast_switch_team.pack(side="left", padx=8, pady=8)
         self.var_fast_switch_team_disabled = ctk.BooleanVar(
-            value=self.app.config.data.get("fast_switch_team_disabled", False)
+            value=True
         )
         self.sw_fast_switch_team_disabled = ctk.CTkSwitch(
             self.frame_fast_switch_team,
@@ -946,7 +976,6 @@ class SettingsWindow(ctk.CTkToplevel):
         self.sw_hotkey_overlap.pack(side="right", padx=8, pady=8)
 
         self.frame_team_switch_hotkey = ctk.CTkFrame(self.scroll_container)
-        self.frame_team_switch_hotkey.pack(fill="x", padx=10, pady=5)
         self.lbl_team_switch_hotkey = ctk.CTkLabel(
             self.frame_team_switch_hotkey, text=ui_text(self.app, "settings_team_switch_hotkey", "Raccourci switch de mode TEAM")
         )
@@ -1393,6 +1422,8 @@ class SettingsWindow(ctk.CTkToplevel):
                 self.app.config.data.get("game_version", "Unity"),
                 immediate=True,
             )
+            if key == "character_bar_compact":
+                bar.restore_after_presentation_change()
         # One real scan picks up pages launched while the settings were open.
         self.after_idle(self.app.refresh)
 

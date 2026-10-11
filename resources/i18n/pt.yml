@@ -152,6 +152,8 @@
   "obs_switch_autoswap": "Troca automática dos clientes Dofus",
   "obs_switch_fallback": "Usar uma cena de segurança",
   "obs_switch_streamdeck": "Mostrar o Streamdeck",
+  "obs_streamdeck_enabled": "Streamdeck ativado e salvo localmente.",
+  "obs_streamdeck_disabled": "Streamdeck desativado e salvo localmente.",
   "obs_switch_diagnostics": "Ativar logs de diagnóstico",
   "obs_step_link": "2. Criar e vincular a cena Dofus",
   "obs_step_sync": "3. Sincronizar personagens detectados",

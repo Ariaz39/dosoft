@@ -54,6 +54,22 @@ class StreamdeckGeometryTests(unittest.TestCase):
         dock.show_and_recover.assert_not_called()
         dock.after.assert_called_once_with(3000, dock._periodic_state_refresh)
 
+    def test_only_latest_rebuild_can_fit_and_show_the_dock(self):
+        dock = ObsStreamDock.__new__(ObsStreamDock)
+        dock._rebuild_generation = 7
+        dock.bridge = SimpleNamespace(
+            profile=SimpleNamespace(data={"dock_enabled": True}),
+        )
+        dock.fit_and_position_window = Mock()
+        dock.show_and_recover = Mock()
+
+        dock.finish_rebuild(6)
+        dock.fit_and_position_window.assert_not_called()
+
+        dock.finish_rebuild(7)
+        dock.fit_and_position_window.assert_called_once_with()
+        dock.show_and_recover.assert_called_once_with(fit=False)
+
 
 if __name__ == "__main__":
     unittest.main()

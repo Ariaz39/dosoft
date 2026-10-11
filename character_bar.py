@@ -142,6 +142,22 @@ class CharacterQuickBar:
         if self.config.data.get("character_bar_visible", False):
             self.set_visible(True)
 
+    def restore_after_presentation_change(self):
+        """Rebuild a compact/full layout and keep an enabled bar on screen.
+
+        A pending layout callback could otherwise run after the compact switch
+        and withdraw or resize the freshly rebuilt popup. Invalidating it and
+        reasserting visibility once Tk has completed geometry calculation makes
+        the format change immediate, without toggling the bar off and on.
+        """
+        self._layout_transition_token += 1
+        self._pending_signature = None
+        self._transitioning = False
+        self.refresh_layout_immediately()
+        if self.config.data.get("character_bar_visible", False):
+            self.parent_root.after_idle(lambda: self.set_visible(True))
+            self.parent_root.after(80, lambda: self.set_visible(True))
+
     def display_signature(self):
         """Stable render identity: unchanged scans must not redraw the bar."""
         account_fields = lambda accounts: tuple(
@@ -227,7 +243,10 @@ class CharacterQuickBar:
         self.var_vertical.set(not self.var_vertical.get())
         self.config.data["character_bar_vertical"] = self.var_vertical.get()
         self.config.save()
-        self.request_layout_refresh(self.display_signature())
+        # This is an explicit presentation change. Rebuild it atomically: the
+        # delayed fade used for account-list changes could run after the native
+        # popup had been resized and leave the new orientation withdrawn.
+        self.restore_after_presentation_change()
 
     @staticmethod
     def load_menu_icon(filename):
@@ -541,7 +560,6 @@ class CharacterQuickBar:
         reverse_scale = getattr(window, "_reverse_window_scaling", lambda value: value)
         logical_width = max(1, reverse_scale(width))
         logical_height = max(1, reverse_scale(height))
-        window.resizable(True, True)
         window.geometry(
             f"{logical_width}x{logical_height}+{window.winfo_x()}+{window.winfo_y()}"
         )
@@ -555,7 +573,6 @@ class CharacterQuickBar:
                 f"{width}x{height}+{window.winfo_x()}+{window.winfo_y()}",
             )
             window.update_idletasks()
-        window.resizable(False, False)
         actual_width = max(1, window.winfo_width())
         actual_height = max(1, window.winfo_height())
         self._shape_sizes[window.winfo_id()] = (actual_width, actual_height)

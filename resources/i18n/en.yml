@@ -152,6 +152,8 @@
   "obs_switch_autoswap": "Auto-switch Dofus clients",
   "obs_switch_fallback": "Use a fallback scene",
   "obs_switch_streamdeck": "Show the Streamdeck",
+  "obs_streamdeck_enabled": "Streamdeck enabled and saved locally.",
+  "obs_streamdeck_disabled": "Streamdeck disabled and saved locally.",
   "obs_switch_diagnostics": "Enable diagnostic logs",
   "obs_step_link": "2. Create and link the Dofus scene",
   "obs_step_sync": "3. Synchronize detected characters",

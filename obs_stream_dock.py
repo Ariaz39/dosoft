@@ -24,6 +24,7 @@ class ObsStreamDock(ctk.CTkToplevel):
         self.control_definitions = {}
         self._control_responses = queue.Queue()
         self._last_fitted_geometry = None
+        self._rebuild_generation = 0
         self.scale = self._profile_scale()
         self.images = self._load_images()
         self.custom_images = {}
@@ -149,6 +150,8 @@ class ObsStreamDock(ctk.CTkToplevel):
         return controls
 
     def rebuild_buttons(self):
+        self._rebuild_generation += 1
+        generation = self._rebuild_generation
         for widget in self.content.winfo_children():
             widget.destroy()
         self.buttons.clear()
@@ -182,9 +185,18 @@ class ObsStreamDock(ctk.CTkToplevel):
             if not is_stateful_streamdeck_command(control["command"]):
                 self.states.pop(control["id"], None)
             self.apply_state(control["id"])
-        self.after(30, self.apply_rounded_shape)
-        self.after(40, self.fit_and_position_window)
+        # Let Tk calculate the complete requested size once. A generation token
+        # prevents callbacks from earlier rapid edits from fitting an obsolete
+        # layout after the newest one has already been displayed.
+        self.after(40, lambda current=generation: self.finish_rebuild(current))
         self.after(150, self._refresh_control_states)
+
+    def finish_rebuild(self, generation):
+        if generation != self._rebuild_generation:
+            return
+        self.fit_and_position_window()
+        if self.bridge.profile.data.get("dock_enabled", False):
+            self.show_and_recover(fit=False)
 
     def position_window(self):
         position = self.bridge.profile.data.get("dock_position", [20, 100])
@@ -216,13 +228,11 @@ class ObsStreamDock(ctk.CTkToplevel):
                 self.bridge._record(
                     f"DOCK : position hors écran corrigée vers {left},{top}"
                 )
-            self.resizable(True, True)
             self.geometry(f"{logical_width}x{logical_height}+{left}+{top}")
             self.update_idletasks()
             if abs(self.winfo_width() - width) > 1 or abs(self.winfo_height() - height) > 1:
                 self.tk.call("wm", "geometry", self._w, f"{width}x{height}+{left}+{top}")
                 self.update_idletasks()
-            self.resizable(False, False)
             actual_geometry = (
                 self.winfo_width(), self.winfo_height(), self.winfo_x(), self.winfo_y()
             )
@@ -237,11 +247,12 @@ class ObsStreamDock(ctk.CTkToplevel):
         except Exception:
             self.position_window()
 
-    def show_and_recover(self):
+    def show_and_recover(self, fit=True):
         """Show the dock and reassert its native topmost state."""
         try:
             self.deiconify()
-            self.fit_and_position_window()
+            if fit:
+                self.fit_and_position_window()
             self.attributes("-topmost", True)
             self.lift()
             self.update_idletasks()
