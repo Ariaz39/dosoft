@@ -12,6 +12,7 @@ import win32gui
 from PIL import Image
 
 from resource_paths import resource_path, skin_path
+from log_utils import append_rotating_async
 
 
 class CharacterQuickBar:
@@ -93,19 +94,17 @@ class CharacterQuickBar:
 
     def debug(self, message):
         """Append quick-bar diagnostics to the isolated beta-data folder."""
-        try:
-            stamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-            with open(self.debug_path, "a", encoding="utf-8") as log:
-                log.write(f"[{stamp}] {message}\n")
-        except OSError:
-            pass
+        stamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        append_rotating_async(
+            self.debug_path, f"[{stamp}] {message}", max_bytes=750_000, backup_count=2
+        )
 
     def update_theme(self, theme, engine):
         self.theme = dict(theme)
         self.engine = engine
-        self.rebuild()
+        self.refresh_layout_immediately()
 
-    def update_accounts(self, accounts, engine):
+    def update_accounts(self, accounts, engine, immediate=False):
         self.engine = engine
         active_accounts = [account for account in accounts if account.get("active", False)]
         mode = self.config.data.get("current_mode", "ALL")
@@ -120,8 +119,26 @@ class CharacterQuickBar:
             self.ghost_accounts = []
             self.ghost_team = None
         signature = self.display_signature()
-        if signature != self._render_signature:
+        if immediate and signature != self._render_signature:
+            self.refresh_layout_immediately(signature)
+        elif signature != self._render_signature:
             self.request_layout_refresh(signature)
+        if self.config.data.get("character_bar_visible", False):
+            self.set_visible(True)
+
+    def refresh_layout_immediately(self, signature=None):
+        """Apply a preference/team change without a delayed fade cycle.
+
+        The settings switches and Fast Switch TEAM are explicit user actions.
+        Waiting for the normal 104 ms layout transition left the companion bar
+        withdrawn and allowed an older scheduled transition to overwrite the
+        new layout.  Invalidating that transition makes the two bars change as
+        one operation and prevents the quick bar from disappearing.
+        """
+        self._layout_transition_token += 1
+        self._pending_signature = None
+        self.rebuild()
+        self._render_signature = signature or self.display_signature()
         if self.config.data.get("character_bar_visible", False):
             self.set_visible(True)
 
@@ -192,6 +209,14 @@ class CharacterQuickBar:
         self.window.deiconify()
         self.window.lift()
         self.window.attributes("-topmost", True)
+        try:
+            foreground = win32gui.GetForegroundWindow()
+        except Exception:
+            foreground = 0
+        self._last_observed_foreground = foreground
+        self._last_foreground = foreground
+        self._selected_hwnd = foreground
+        self.apply_card_states(foreground)
         self.apply_rounded_shape(self.window)
         self.sync_ghost_bar()
 
@@ -509,10 +534,32 @@ class CharacterQuickBar:
         content.update_idletasks()
         width = max(1, content.winfo_reqwidth() + 2)
         height = max(1, content.winfo_reqheight() + 2)
-        self._shape_sizes[window.winfo_id()] = (width, height)
-        window.geometry(f"{width}x{height}+{window.winfo_x()}+{window.winfo_y()}")
+        # CTkToplevel.geometry() applies the Windows/Tk scaling factor to the
+        # requested width and height. winfo_reqwidth() is already expressed in
+        # physical pixels, so passing it directly applies 125/150% a second
+        # time on 2K/4K displays (185 px became 231 px in diagnostics).
+        reverse_scale = getattr(window, "_reverse_window_scaling", lambda value: value)
+        logical_width = max(1, reverse_scale(width))
+        logical_height = max(1, reverse_scale(height))
+        window.resizable(True, True)
+        window.geometry(
+            f"{logical_width}x{logical_height}+{window.winfo_x()}+{window.winfo_y()}"
+        )
         window.update_idletasks()
-        self.debug(f"taille cible={width}x{height} fenêtre={window.winfo_id()} contenu={content.winfo_width()}x{content.winfo_height()}")
+        if abs(window.winfo_width() - width) > 1 or abs(window.winfo_height() - height) > 1:
+            # Bypass CTk's logical scaling only as a fallback. This also
+            # releases the initial 200x200 fixed-size constraint seen on some
+            # Windows 11 / 125% DPI combinations.
+            window.tk.call(
+                "wm", "geometry", window._w,
+                f"{width}x{height}+{window.winfo_x()}+{window.winfo_y()}",
+            )
+            window.update_idletasks()
+        window.resizable(False, False)
+        actual_width = max(1, window.winfo_width())
+        actual_height = max(1, window.winfo_height())
+        self._shape_sizes[window.winfo_id()] = (actual_width, actual_height)
+        self.debug(f"taille cible={width}x{height} fenêtre={window.winfo_id()} contenu={content.winfo_width()}x{content.winfo_height()} réelle={actual_width}x{actual_height}")
 
     def sync_ghost_bar(self):
         """Place the ghost under, and offset by half, the main quick bar."""
@@ -610,7 +657,11 @@ class CharacterQuickBar:
             # CustomTkinter can expose a child HWND here.  The black rectangle
             # belongs to the native root window, so clip that actual surface.
             root_hwnd = ctypes.windll.user32.GetAncestor(widget_hwnd, 2) or widget_hwnd
-            region = ctypes.windll.gdi32.CreateRoundRectRgn(0, 0, width + 1, height + 1, 28, 28)
+            scale = getattr(window, "_get_window_scaling", lambda: 1.0)()
+            radius = max(16, round(28 * scale))
+            region = ctypes.windll.gdi32.CreateRoundRectRgn(
+                0, 0, width + 1, height + 1, radius, radius
+            )
             result = ctypes.windll.user32.SetWindowRgn(root_hwnd, region, True)
             self.debug(f"forme widget={widget_hwnd} racine={root_hwnd} cible={width}x{height} actuelle={window.winfo_width()}x{window.winfo_height()} résultat={result}")
         except Exception:
@@ -637,8 +688,11 @@ class CharacterQuickBar:
         self._selected_hwnd = foreground
         if self.window.winfo_viewable():
             self.animate_card_selection(previous, foreground)
-        else:
-            self.apply_card_states(foreground)
+        # Keep only the selected HWND while the optional overlay is hidden.
+        # Configuring all CustomTkinter cards in the background made the Tk
+        # thread repaint eight invisible widgets on every game-page switch.
+        # The current state is applied by the normal show/layout path when the
+        # user enables the bar again.
 
     @staticmethod
     def blend_color(start, end, amount):
@@ -655,17 +709,10 @@ class CharacterQuickBar:
             return end if amount >= 0.5 else start
 
     def animate_card_selection(self, previous_hwnd, selected_hwnd):
-        """Fade only portrait colours; the bars themselves never blink."""
+        """Repaint once so a page switch never queues dozens of Tk redraws."""
         self._color_transition_token += 1
-        token = self._color_transition_token
         self.debug(f"couleur: transition {previous_hwnd} -> {selected_hwnd}")
-        for step in range(5):
-            self.parent_root.after(
-                step * 28,
-                lambda progress=step / 4, current=token: self.apply_card_transition(
-                    previous_hwnd, selected_hwnd, progress, current
-                ),
-            )
+        self.apply_card_states(selected_hwnd)
 
     def apply_card_transition(self, previous_hwnd, selected_hwnd, progress, token):
         if token != self._color_transition_token:
@@ -734,7 +781,11 @@ class CharacterQuickBar:
 
     def poll_active_window(self):
         try:
-            self.update_card_states()
+            # The overlay is optional.  When it is disabled there is no visual
+            # state to maintain, so do no foreground polling, logging or Tk
+            # widget work while the user cycles through game clients.
+            if self.config.data.get("character_bar_visible", False):
+                self.update_card_states()
         except (tk.TclError, Exception):
             pass
         finally:

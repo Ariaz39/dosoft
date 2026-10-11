@@ -1,0 +1,4 @@
+Font Awesome Free 7
+Copyright Fonticons, Inc.
+Icons licensed under CC BY 4.0.
+https://fontawesome.com/license/free

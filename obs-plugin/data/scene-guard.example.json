@@ -1,0 +1,15 @@
+{
+  "selection_mode": "hybrid",
+  "poll_interval_ms": 100,
+  "safe_scene": "",
+  "instances": [
+    { "account": "Personnage 1", "scene": "Dofus - 1" },
+    { "account": "Personnage 2", "scene": "Dofus - 2" },
+    { "account": "Personnage 3", "scene": "Dofus - 3" },
+    { "account": "Personnage 4", "scene": "Dofus - 4" },
+    { "account": "Personnage 5", "scene": "Dofus - 5" },
+    { "account": "Personnage 6", "scene": "Dofus - 6" },
+    { "account": "Personnage 7", "scene": "Dofus - 7" },
+    { "account": "Personnage 8", "scene": "Dofus - 8" }
+  ]
+}

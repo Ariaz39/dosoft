@@ -4,11 +4,21 @@ import sys
 from typing import Any, Dict
 
 
+SUPPORTED_LOCALES = ("fr", "en", "es", "pt", "de")
+LANGUAGE_NAMES = {
+    "fr": "Français",
+    "en": "English",
+    "es": "Español",
+    "pt": "Português",
+    "de": "Deutsch",
+}
+
+
 class I18nManager:
     def __init__(self, locale: str, base_path: str = "resources/i18n"):
         self.base_path = self._resolve_base_path(base_path)
         self.default_locale = "fr"
-        self.locale = locale or self.default_locale
+        self.locale = locale if locale in SUPPORTED_LOCALES else self.default_locale
         self.default_strings = self._load_locale_file(self.default_locale)
         self.current_strings = self._load_locale_file(self.locale)
 
@@ -29,7 +39,7 @@ class I18nManager:
             return {}
 
     def set_locale(self, locale: str) -> None:
-        self.locale = locale or self.default_locale
+        self.locale = locale if locale in SUPPORTED_LOCALES else self.default_locale
         self.current_strings = self._load_locale_file(self.locale)
 
     def t(self, key: str, default: str = "") -> str:

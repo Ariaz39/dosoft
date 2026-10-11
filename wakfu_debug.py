@@ -3,6 +3,7 @@
 from datetime import datetime
 import os
 import threading
+from log_utils import append_rotating
 
 
 _lock = threading.Lock()
@@ -14,8 +15,8 @@ def write_wakfu_debug(message):
     if not path:
         return
     try:
-        with _lock, open(path, "a", encoding="utf-8") as log_file:
+        with _lock:
             timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-            log_file.write(f"{timestamp} {message}\n")
-    except OSError:
+            append_rotating(path, f"{timestamp} {message}", max_bytes=750_000, backup_count=2)
+    except Exception:
         pass
