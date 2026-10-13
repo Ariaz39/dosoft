@@ -115,8 +115,8 @@ class SettingsWindow(ctk.CTkToplevel):
         self.app.config.save()
         
         rep = messagebox.askyesno(
-            "Redémarrage requis", 
-            "Pour appliquer le changement de moteur d'Autofocus, DOSOFT doit être redémarré", 
+            self.app.i18n.t("restart_required_title", "Redémarrage requis"),
+            self.app.i18n.t("restart_api_text", "Pour appliquer le changement de moteur d'Autofocus, DOSOFT doit être redémarré"),
             parent=self
         )
         if rep:

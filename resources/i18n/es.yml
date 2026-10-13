@@ -9,6 +9,8 @@
   "settings_keyboard_layout": "Distribución del teclado",
   "settings_api_mode": "Motor de Auto-Focus (si falla)",
   "tooltip_api_mode": "Cambia de versión si el auto-focus deja de funcionar.\nRequiere reiniciar.",
+  "restart_required_title": "Reinicio requerido",
+  "restart_api_text": "Para aplicar el cambio del motor de Auto-Focus, DOSOFT debe reiniciarse",
   "none": "Ninguno",
   "header_settings": "⚙️ Configuración",
   "header_tutorial": "🎓 Tutorial",
