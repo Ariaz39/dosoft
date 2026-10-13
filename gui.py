@@ -62,7 +62,7 @@ class SettingsWindow(ctk.CTkToplevel):
         self.lbl_language = ctk.CTkLabel(frame_language, text=self.app.i18n.t("settings_language", "Langue"))
         self.lbl_language.pack(side="left", padx=8, pady=8)
         self.var_language = ctk.StringVar(value=self.app.config.data.get("language", "fr"))
-        ctk.CTkOptionMenu(frame_language, values=["fr", "en", "pt"], variable=self.var_language, command=lambda _: self.save_settings()).pack(side="right", padx=8, pady=8)
+        ctk.CTkOptionMenu(frame_language, values=["fr", "en", "pt", "es"], variable=self.var_language, command=lambda _: self.save_settings()).pack(side="right", padx=8, pady=8)
 
         frame_keyboard = ctk.CTkFrame(self.scroll_container)
         frame_keyboard.pack(fill="x", padx=10, pady=5)
