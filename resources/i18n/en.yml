@@ -7,6 +7,8 @@
   "settings_hotkey": "Shortcut:",
   "settings_language": "Language",
   "settings_keyboard_layout": "Keyboard layout",
+  "settings_api_mode": "Auto-Focus engine (if buggy)",
+  "tooltip_api_mode": "Switch version if auto-focus stops working.\nRequires a restart.",
   "none": "None",
   "header_settings": "⚙️ Settings",
   "header_tutorial": "🎓 Tutorial",

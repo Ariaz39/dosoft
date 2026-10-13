@@ -7,6 +7,8 @@
   "settings_hotkey": "Atalho:",
   "settings_language": "Idioma",
   "settings_keyboard_layout": "Layout do teclado",
+  "settings_api_mode": "Motor de Auto-Focus (se houver bug)",
+  "tooltip_api_mode": "Mude de versão se o auto-focus parar de funcionar.\nRequer reinício.",
   "none": "Nenhum",
   "header_settings": "⚙️ Configurações",
   "header_tutorial": "🎓 Tutorial",

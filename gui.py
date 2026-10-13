@@ -75,7 +75,7 @@ class SettingsWindow(ctk.CTkToplevel):
         frame_debug = ctk.CTkFrame(self.scroll_container)
         frame_debug.pack(fill="x", padx=10, pady=5)
         
-        self.lbl_debug = ctk.CTkLabel(frame_debug, text="Moteur Auto-Focus (Si bug)")
+        self.lbl_debug = ctk.CTkLabel(frame_debug, text=self.app.i18n.t("settings_api_mode", "Moteur Auto-Focus (Si bug)"))
         self.lbl_debug.pack(side="left", padx=8, pady=8)
         
         # On définit v2 par défaut
@@ -132,6 +132,7 @@ class SettingsWindow(ctk.CTkToplevel):
         self.lbl_hk.configure(text=self.app.i18n.t("settings_hotkey", "Raccourci :"))
         self.lbl_language.configure(text=self.app.i18n.t("settings_language", "Langue"))
         self.lbl_keyboard.configure(text=self.app.i18n.t("settings_keyboard_layout", "Disposition clavier"))
+        self.lbl_debug.configure(text=self.app.i18n.t("settings_api_mode", "Moteur Auto-Focus (Si bug)"))
         self.btn_close.configure(text=self.app.i18n.t("settings_close", "Fermer"))
 
 
